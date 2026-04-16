@@ -24,7 +24,7 @@ appName <<- "RNA Seq Workflow Starter"
 # Necessary Files here:
 template <<- read_excel("Necessary Files/SampleTemplate.xlsx", sheet = 1)
 # Root Dir for Folder Selection:
-rootDir <<- c(Home = fs::path_expand("/varidata/research/projects"))
+rootDir <<- c(Home = "~")
 
 
 # ___________________ ----
@@ -82,7 +82,7 @@ server <- function(session, input, output) {
   ## 1.0 Global Vars ----
   # Any variables here that need to carry across app sections, but should be local to the user
   # Keep all variables inside a list to help with debugging later
-  global <- reactiveValues(
+  globals <- reactiveValues(
     datasets = list(
       configSettings = data.frame(
         ref_genome_version = NULL,
