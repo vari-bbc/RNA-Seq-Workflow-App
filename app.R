@@ -1,6 +1,10 @@
 # ___________________ ----
 # App Startup ----
 
+if (!require("pacman", quietly = TRUE))
+    install.packages("pacman")
+
+
 ## 1.0 Load Libraries ----
 # change back to individual loads
 pacman::p_load(shiny,bslib,shinyjs,shinyWidgets,bsicons,plotly,DT,readr,
@@ -18,9 +22,9 @@ sourceFunctions(functionFolderPath)
 # App Name here:
 appName <<- "RNA Seq Workflow Starter"
 # Necessary Files here:
-template <<- read_excel("Necessary Files/sampleTemplate.csv", sheet = 1)
+template <<- read_excel("Necessary Files/SampleTemplate.xlsx", sheet = 1)
 # Root Dir for Folder Selection:
-rootDir <<- c(Home = fs::path_expand("/varidata/research/projects"))
+rootDir <<- c(Home = "~")
 
 
 # ___________________ ----
@@ -78,7 +82,7 @@ server <- function(session, input, output) {
   ## 1.0 Global Vars ----
   # Any variables here that need to carry across app sections, but should be local to the user
   # Keep all variables inside a list to help with debugging later
-  global <- reactiveValues(
+  globals <- reactiveValues(
     datasets = list(
       configSettings = data.frame(
         ref_genome_version = NULL,
