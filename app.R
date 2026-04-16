@@ -22,7 +22,7 @@ sourceFunctions(functionFolderPath)
 # App Name here:
 appName <<- "RNA Seq Workflow Starter"
 # Necessary Files here:
-template <<- read_excel("Necessary Files/sampleTemplate.csv", sheet = 1)
+template <<- read_excel("Necessary Files/SampleTemplate.xlsx", sheet = 1)
 # Root Dir for Folder Selection:
 rootDir <<- c(Home = fs::path_expand("/varidata/research/projects"))
 
