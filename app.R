@@ -24,7 +24,10 @@ appName <<- "RNA Seq Workflow Starter"
 # Necessary Files here:
 template <<- read_excel("Necessary Files/SampleTemplate.xlsx", sheet = 1)
 # Root Dir for Folder Selection:
-rootDir <<- c(Home = "~")
+rootDir <<- c(Home = "~", "HPC Primary" = "~/../../primary", "HPC Secondary" = "~/../../secondary")
+restrictDir <<- c("afs","bin","cloudstorage","cm","dev","etc","legacy","lib",
+                  "lib64","localdisk","media","mnt","opt","proc","root","run",
+                  "sbin","srv","sys","tmp","usr")
 
 
 # ___________________ ----
@@ -61,8 +64,10 @@ ui <- UINav(
   
   ## 3.0 Run Workflow ----
   singleTab("Run Workflow",
-    shinyDirButton("inputPathSelect","Select Fastq Input Folder","Please select a folder"),
-    shinyDirButton("outputPathSelect","Select Workflow Output Folder","Please select a folder"),
+    shinyDirButton("inputPathSelect","Select Fastq Input Folder",
+                   "Please select a folder", viewtype = "icon"),
+    shinyDirButton("outputPathSelect","Select Workflow Output Folder",
+                   "Please select a folder", viewtype = "icon"),
     navButton("runWorkflow","Run the Whole Workflow", 
               tooltipText = "You will receive an email once it is done with a 
               link to the output location"),
@@ -94,7 +99,7 @@ server <- function(session, input, output) {
     ),
     checks = list(
       inputDirCheck = F,
-      ouptutDirCheck = F,
+      outputDirCheck = F,
       filesCheck = F
     )
   )
@@ -130,7 +135,8 @@ server <- function(session, input, output) {
   
   ## 4.0 Select Folders ----
   # Input folder
-  shinyDirChoose(input, "inputPathSelect", roots = rootDir, session = session)
+  shinyDirChoose(input, "inputPathSelect", roots = rootDir, session = session, 
+                 allowDirCreate = F, hidden = F, restrictions = restrictDir)
   
   observeEvent(input$inputPathSelect,{
     inputDir <- parseDirPath(rootDir,input$inputPathSelect)
@@ -145,7 +151,7 @@ server <- function(session, input, output) {
     #                                               for the following directory: ",inputDir) })
     
     # Check if workflow is runnable
-    if (globals$checks$inputDirCheck & globals$checks$outputDirCheck & filesCheck){
+    if (globals$checks$inputDirCheck & globals$checks$outputDirCheck & globals$checks$filesCheck){
       activateItems(c("runWorkflow"))
     }
   })
@@ -165,7 +171,7 @@ server <- function(session, input, output) {
     #                                               for the following directory: ",outputDir) })
     
     # Check if workflow is runnable
-    if (globals$checks$inputDirCheck & globals$checks$outputDirCheck & filesCheck){
+    if (globals$checks$inputDirCheck & globals$checks$outputDirCheck & globals$checks$filesCheck){
       activateItems(c("runWorkflow"))
     }
   })
@@ -232,7 +238,7 @@ server <- function(session, input, output) {
     globals$checks$filesCheck <- T
     
     # Check if workflow is runnable
-    if (globals$checks$inputDirCheck & globals$checks$outputDirCheck & filesCheck){
+    if (globals$checks$inputDirCheck & globals$checks$outputDirCheck & globals$checks$filesCheck){
       activateItems(c("runWorkflow"))
     }
     
