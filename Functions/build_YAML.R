@@ -16,29 +16,39 @@
 build_YAML <- function(
     ref_genome_version = '2026-02-12_15.29.54_v23', 
     species_name = 'human',
-    FDR
+    FDR = 0.1
 ) {
   
   if (!requireNamespace("yaml", quietly = TRUE)) {
     stop("Package 'yaml' is required. Install with: install.packages('yaml')")
   }
   
+  message("ref_genome_version: ", ref_genome_version)
+  message("class: ", class(ref_genome_version))
+  message("length: ", length(ref_genome_version))
+  message("species_name: ", species_name)
+  
   # first import the template master YAML
-  master <- yaml::read_yaml('/Users/ian.beddows/Desktop/RNA-Seq-Workflow-App/Necessary_Files/master_config.yaml')
+  print(file.exists('Necessary\ Files/master_config.yaml'))
+  master <- yaml::read_yaml('Necessary\ Files/master_config.yaml')
   
   # substitute in ref_genome_version for [[species_name]]
-  master[[species_name]]$ref <- lapply(master[[species_name]]$ref, gsub, pattern = "VERSION", replacement = ref_genome_version)
-  
+  master[[species_name]]$ref <- lapply(
+    master[[species_name]]$ref, 
+    gsub, 
+    pattern = "VERSION", 
+    replacement = as.character(ref_genome_version)[1]
+  )
   # make additional modifications to YAML from input args
   # < to do >
-  # master$modifiable_parameters[[<parameter_hardcoded>]] <- paramter_value_
+  # master$modifiable_parameters[["FDR"]] <- FDR
   
   # write this out along with the other unchanged yaml
   write_yaml(
     c(
-      master[[species_name]], 
+      master[[species_name]],
       master[["modifiable_parameters"]],
-      master[["unchanged"]],
+      master[["unchanged"]]
     ),
     "output_config.yaml"
   )
