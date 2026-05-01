@@ -52,22 +52,16 @@ mouse:
   # Choose which gene sets you would like to test against
   pathway_str: Reactome,BP,BP-simplified,KEGG,H,C1,C2,C3,C4,C5,C6,C7,C8
 
-unchanged:
+modifiable_parameters:
+  # FDR cutoff
   fdr_cutoff: 0.1
-  ######### 
-  # Statistical modelling note:
-  # You can define the default statistics model in config/samplesheet/comparisons.tsv if
-  # additional metadata columns are added in units.tsv. The default is "~group", but can be
-  # changed to include columns listed in the last column of units.tsv. As an example: 
-  # "~group+batch", or "~group+batch+sex" can be used if a "batch" and "sex" column are 
-  # added to the end of the units.tsv.
-
+  # are the sequencing reads paired-end ('PE') or single-end ('SE')
+  PE_or_SE: PE
   # Any additional column in "units.tsv" that should be treated as a numeric variable should be listed in a comma-separated list below - all others will be treated as categorical: 
   # For example: age,RIN,height,weight,temperature,dose; no commas required for a single variable
   numeric_variables: 
 
-  # are the sequencing reads paired-end ('PE') or single-end ('SE')
-  PE_or_SE: PE
+  
 
   call_variants: False
   grouped_contigs: config/grouped_contigs.tsv 
@@ -93,7 +87,7 @@ unchanged:
   deploy_to_shinyio: False
   shinyio_account_name: "vai-bbc" # valid account names can be found using rsconnect::accounts(); If blank, follow instructions at https://docs.posit.co/shinyapps.io/guide/getting_started/#configure-rsconnect 
 
-
+unchanged:
   ####################################################################
   # FOR MOST STANDARD USE CASES, THE BELOW DO NOT NEED TO BE CHANGED.#
   ####################################################################

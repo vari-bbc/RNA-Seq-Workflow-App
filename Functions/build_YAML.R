@@ -31,12 +31,14 @@ build_YAML <- function(
   
   # make additional modifications to YAML from input args
   # < to do >
+  # master$modifiable_parameters[[<parameter_hardcoded>]] <- paramter_value_
   
   # write this out along with the other unchanged yaml
   write_yaml(
     c(
       master[[species_name]], 
-      master[["unchanged"]]
+      master[["modifiable_parameters"]],
+      master[["unchanged"]],
     ),
     "output_config.yaml"
   )
