@@ -41,7 +41,7 @@ build_YAML <- function(
   )
   # make additional modifications to YAML from input args
   # < to do >
-  # master$modifiable_parameters[["FDR"]] <- FDR
+  master$modifiable_parameters[["FDR"]] <- FDR
   
   # write this out along with the other unchanged yaml
   write_yaml(

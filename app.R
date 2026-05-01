@@ -226,7 +226,8 @@ server <- function(session, input, output) {
     ## create the config.YAML
     build_YAML(
       ref_genome_version = as.character(input$refVersions),
-      species_name       = as.character(input$speciesSelect)
+      species_name       = as.character(input$speciesSelect),
+      FDR                = as.numeric(input$fdrCutoff)
     )
     showNotification("Files created!", type = "message")
     
