@@ -1,0 +1,136 @@
+human:
+  ref:
+    index:          /varidata/research/projects/bbc/versioned_references/VERSION/data/hg38_gencode/indexes/star
+    salmon_index:   /varidata/research/projects/bbc/versioned_references/VERSION/data/hg38_gencode/indexes/salmon/hg38_gencode
+    annotation:     /varidata/research/projects/bbc/versioned_references/VERSION/data/hg38_gencode/annotation/hg38_gencode.gtf
+    dict: /varidata/research/projects/bbc/versioned_references/VERSION/data/hg38_gencode/sequence/hg38_gencode.dict
+    # Below used only for variant calling
+    snpeff_db_id: hg38
+    known_snps: /varidata/research/projects/bbc/versioned_references/VERSION/data/hg38_gencode/gatk_resource_bundle/Homo_sapiens_assembly38.dbsnp138.vcf
+    known_indels: /varidata/research/projects/bbc/versioned_references/VERSION/data/hg38_gencode/gatk_resource_bundle/Mills_and_1000G_gold_standard.indels.hg38.vcf.gz
+    sequence: /varidata/research/projects/bbc/versioned_references/VERSION/data/hg38_gencode/sequence/hg38_gencode.fa
+    fai:  /varidata/research/projects/bbc/versioned_references/VERSION/data/hg38_gencode/sequence/hg38_gencode.fa.fai
+
+  # OrgDB R package for covnerting gene names. Common choices are 'org.Mm.eg.db' for mouse and 'org.Hs.eg.db' for human.
+  orgdb: org.Hs.eg.db
+  genes_of_interest: #DUSP1,KLF15,CRISPLD2 # create table in report of these genes, keep empty if no initial genes of interest.
+
+  # For GSEA quick_ref can only handle human, mouse, rat, and fly; all other organisms need to be filled in manually
+  # kegg_org should be a three or four letter string corresponding to your reference species. List of KEGG species is found here: https://www.genome.jp/kegg/tables/br08606.html
+  kegg_org: hsa
+  # reactome_org can be "human", "mouse", "rat", "celegans", "yeast", "zebrafish", "fly" 
+  reactome_org: human
+  # Full species name. Applicable input strings can be found by installing the msigdbr library in R and using msigdbr::msigdbr_species()
+  msigdb_organism: Homo sapiens
+  # Choose which gene sets you would like to test against
+  pathway_str: Reactome,BP,BP-simplified,KEGG,H,C1,C2,C3,C4,C5,C6,C7,C8
+
+mouse:
+  ref:
+    index:          /varidata/research/projects/bbc/versioned_references/VERSION/data/mm10_gencode/indexes/star
+    salmon_index:   /varidata/research/projects/bbc/versioned_references/VERSION/data/mm10_gencode/indexes/salmon/mm10_gencode
+    annotation:     /varidata/research/projects/bbc/versioned_references/VERSION/data/mm10_gencode/annotation/mm10_gencode.gtf
+    dict: /varidata/research/projects/bbc/versioned_references/VERSION/data/mm10_gencode/sequence/mm10_gencode.dict
+    # Below used only for variant calling
+    snpeff_db_id: mm10
+    known_snps: /varidata/research/projects/bbc/versioned_references/VERSION/data/hg38_gencode/gatk_resource_bundle/Homo_sapiens_assembly38.dbsnp138.vcf
+    known_indels: /varidata/research/projects/bbc/versioned_references/VERSION/data/hg38_gencode/gatk_resource_bundle/Mills_and_1000G_gold_standard.indels.hg38.vcf.gz
+    sequence: /varidata/research/projects/bbc/versioned_references/VERSION/data/hg38_gencode/sequence/hg38_gencode.fa
+    fai:  /varidata/research/projects/bbc/versioned_references/VERSION/data/hg38_gencode/sequence/hg38_gencode.fa.fai
+
+  # OrgDB R package for covnerting gene names. Common choices are 'org.Mm.eg.db' for mouse and 'org.Hs.eg.db' for human.
+  orgdb: org.Mm.eg.db
+  genes_of_interest: #DUSP1,KLF15,CRISPLD2 # create table in report of these genes, keep empty if no initial genes of interest.
+
+  # For GSEA quick_ref can only handle human, mouse, rat, and fly; all other organisms need to be filled in manually
+  # kegg_org should be a three or four letter string corresponding to your reference species. List of KEGG species is found here: https://www.genome.jp/kegg/tables/br08606.html
+  kegg_org: mmu
+  # reactome_org can be "human", "mouse", "rat", "celegans", "yeast", "zebrafish", "fly" 
+  reactome_org: mouse
+  # Full species name. Applicable input strings can be found by installing the msigdbr library in R and using msigdbr::msigdbr_species()
+  msigdb_organism: Mus musculus
+  # Choose which gene sets you would like to test against
+  pathway_str: Reactome,BP,BP-simplified,KEGG,H,C1,C2,C3,C4,C5,C6,C7,C8
+
+unchanged:
+  fdr_cutoff: 0.1
+  ######### 
+  # Statistical modelling note:
+  # You can define the default statistics model in config/samplesheet/comparisons.tsv if
+  # additional metadata columns are added in units.tsv. The default is "~group", but can be
+  # changed to include columns listed in the last column of units.tsv. As an example: 
+  # "~group+batch", or "~group+batch+sex" can be used if a "batch" and "sex" column are 
+  # added to the end of the units.tsv.
+
+  # Any additional column in "units.tsv" that should be treated as a numeric variable should be listed in a comma-separated list below - all others will be treated as categorical: 
+  # For example: age,RIN,height,weight,temperature,dose; no commas required for a single variable
+  numeric_variables: 
+
+  # are the sequencing reads paired-end ('PE') or single-end ('SE')
+  PE_or_SE: PE
+
+  call_variants: False
+  grouped_contigs: config/grouped_contigs.tsv 
+
+  run_vis_bigwig : False
+  run_rseqc: False
+
+  # R project config
+  Rproj_dirname: "VBCS-0000_Rproj"
+  Rproj_init_git: False # if setting to True, ensure you have configured your identity for git. See https://git-scm.com/book/ms/v2/Getting-Started-First-Time-Git-Setup.
+  ## use renv cache or install/copy all packages in project.
+  renv_use_cache: True
+  ## copy packages from user library if available?
+  renv_use_user_lib: True
+  renv_symlink_from_cache: True #False
+  # Use Pak to install packages
+  renv_use_pak: False # I couldn't get pak to install to the renv cache which resulted in rebuilding the library each time; see https://github.com/r-lib/pak/issues/284
+  ## if using renv cache, this is the path to where the cache is/will be stored.
+  renv_root_path: /varidata/research/projects/bbc/tools/renv_root
+
+  # iSEE config
+  iSEE_app_name: "RNAseq_proj"
+  deploy_to_shinyio: False
+  shinyio_account_name: "vai-bbc" # valid account names can be found using rsconnect::accounts(); If blank, follow instructions at https://docs.posit.co/shinyapps.io/guide/getting_started/#configure-rsconnect 
+
+
+  ####################################################################
+  # FOR MOST STANDARD USE CASES, THE BELOW DO NOT NEED TO BE CHANGED.#
+  ####################################################################
+
+  # path to sample sheet relative to the base project directory (containing config/, workflow/ etc)
+  units: config/samplesheet/units.tsv
+  comparisons: config/samplesheet/comparisons.tsv
+
+  sortmerna:
+      rfam5_8s: /varidata/research/software/BBC/sortmerna/sortmerna-4.3.6-Linux/rRNA_databases/rfam-5.8s-database-id98.fasta
+      rfam5s: /varidata/research/software/BBC/sortmerna/sortmerna-4.3.6-Linux/rRNA_databases/rfam-5s-database-id98.fasta
+      silva_arc_16s: /varidata/research/software/BBC/sortmerna/sortmerna-4.3.6-Linux/rRNA_databases/silva-arc-16s-id95.fasta
+      silva_arc_23s: /varidata/research/software/BBC/sortmerna/sortmerna-4.3.6-Linux/rRNA_databases/silva-arc-23s-id98.fasta
+      silva_bac_16s: /varidata/research/software/BBC/sortmerna/sortmerna-4.3.6-Linux/rRNA_databases/silva-bac-16s-id90.fasta
+      silva_bac_23s: /varidata/research/software/BBC/sortmerna/sortmerna-4.3.6-Linux/rRNA_databases/silva-bac-23s-id98.fasta
+      silva_euk_18s: /varidata/research/software/BBC/sortmerna/sortmerna-4.3.6-Linux/rRNA_databases/silva-euk-18s-id95.fasta
+      silva_euk_28s: /varidata/research/software/BBC/sortmerna/sortmerna-4.3.6-Linux/rRNA_databases/silva-euk-28s-id98.fasta
+      idx_dir: /varidata/research/software/BBC/sortmerna/sortmerna-4.3.6-Linux/indexes/idx/
+
+  modules:
+    deeptools: bbc2/deeptools/deeptools-3.5.2
+    fastqc: bbc2/fastqc/fastqc-0.12.1
+    fastq_screen: bbc2/fastq_screen/fastq_screen-0.14.0
+    gatk: bbc2/gatk/gatk-4.3.0.0
+    htslib: bbc2/htslib/htslib-1.17
+    multiqc: bbc2/multiqc/multiqc-1.14
+    pandoc: bbc2/pandoc/pandoc-3.1.2
+    picard: bbc2/picard/picard-3.0.0
+    # The easiest way to get renv to work is to make sure all packages are already installed and up to date in your user library which will then be simply copied to the project library
+    R: bbc2/R/alt/R-4.5.0-setR_LIBS_USER
+    rseqc: bbc2/rseqc/rseqc-5.0.4
+    salmon: bbc2/salmon/salmon-1.10.0
+    samtools: bbc2/samtools/samtools-1.17
+    seqtk: bbc2/seqtk/seqtk-1.3-r115-dirty
+    snpeff: bbc2/SnpEff/SnpEff-5.1
+    sortmerna: bbc2/sortmerna/sortmerna-4.3.6
+    star: bbc2/STAR/STAR-2.7.10a
+    trim_galore: bbc2/trim_galore/trim_galore-0.6.10
+    ucsctools: bbc2/ucsc_tools/ucsc_tools-20231127 
+    vt: bbc2/vt/vt-0.1.16
