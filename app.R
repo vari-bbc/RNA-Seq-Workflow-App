@@ -9,7 +9,7 @@ if (!require("pacman", quietly = TRUE))
 # change back to individual loads
 pacman::p_load(shiny,bslib,shinyjs,shinyWidgets,bsicons,plotly,DT,readr,
                tidytable,colourpicker,pheatmap,grid,ggnewscale,stringr,
-               viridis,tibble,shinyFiles,readxl)
+               viridis,tibble,shinyFiles,readxl,writexl,yaml)
 
 
 ## 2.0 Load Basics ----
@@ -50,14 +50,14 @@ ui <- UINav(
     navSelect("refVersions", "Reference Version", "Single", "Locked", 
               theChoices = c("2026-02-12_15.29.54_v23","2025-12-18_22.42.45_v22")),
     navSelect("speciesSelect","Select the Species", "Single", "Locked",
-              theChoices = c("hg38_gencode","mm10_gencode","mm39_gencode")),
+              theChoices = c("human","mouse","fly")),
     navNumeric("fdrCutoff","FDR Cutoff", 0.01, tooltipText = "Default: 0.01"),
     navCheckbox("pairedSingle","Single End", "False", 
                 tooltipText = "Default is Paired End, switch on to select Single End"),
     navCheckbox("visBigWig","Run VisBigWig", "True"),
     navCheckbox("rSeqC","Run rSeqC", "True"),
     navSelect("relevantComps", "Select Comparisons", "Multi", "Locked"),
-    navButton("createFiles","Create Files for Workflow"),
+    actionButton("createFiles","Create Files for Workflow"),
     hr(),
     navDownload("workflowFiles","Download a Zip of the Workflow Files")
   ),
@@ -90,8 +90,8 @@ server <- function(session, input, output) {
   globals <- reactiveValues(
     datasets = list(
       configSettings = data.frame(
-        ref_genome_version = NULL,
-        speciec_name = NULL
+        ref_genome_version = NA,
+        species_name = NA
         # And so on for every part we want changable
       ),
       unitsTSV = NULL,
@@ -111,7 +111,7 @@ server <- function(session, input, output) {
     startSection("Run on Start")
     
     # Deactivate buttons that need other things to function
-    deactivateItems(c("createFiles","runWorkflow"))
+    # deactivateItems(c("createFiles","runWorkflow"))
 
     # Deactivate downloads that need other things to function
     deactivateItems(c("workflowFiles"))
@@ -129,7 +129,7 @@ server <- function(session, input, output) {
       paste("sampleTemplate.xlsx")
     },
     content = function(file) {
-      write_xlsx(template, file)
+      writexl::write_xlsx(template, file)
     }
   )
   
@@ -211,8 +211,8 @@ server <- function(session, input, output) {
   ## 6.0 Update Config Options ----
   # All user inputs to config saved here (also any checks we want for inputs should be here)
   observeEvent(input$refVersions,{
-    globals$dataframes$configOptions$ref_genome_version <- input$refVersions
-  })
+    globals$datasets$configSettings$ref_genome_version <- input$refVersions
+  }, ignoreInit = TRUE)
   
   
   ## 7.0 Create Workflow Files ----
@@ -220,8 +220,16 @@ server <- function(session, input, output) {
     startSection("Create workflow files")
     
     ## Load globals
-    configSettings <- globals$dataframes$configSettings
+    configSettings <- globals$datasets$configSettings
     
+    
+    ## create the config.YAML
+    build_YAML(
+      ref_genome_version = as.character(input$refVersions),
+      species_name       = as.character(input$speciesSelect),
+      FDR                = as.numeric(input$fdrCutoff)
+    )
+    showNotification("Files created!", type = "message")
     
     ## Inputs
     # Load all non config user inputs here
@@ -235,7 +243,7 @@ server <- function(session, input, output) {
 
     ## App interactions
     
-    globals$checks$filesCheck <- T
+    globals$checks$filesCheck <- T # ? what is this doing/checking
     
     # Check if workflow is runnable
     if (globals$checks$inputDirCheck & globals$checks$outputDirCheck & globals$checks$filesCheck){
@@ -262,30 +270,27 @@ server <- function(session, input, output) {
 
     ## Save globals
     # Save all files here for use in running actual workflow
-    globals$dataframes$unitsTSV <- unitsTSV
-    globals$dataframes$comparisionsTSV <- comparisionsTSV 
+    # globals$datasets$unitsTSV <- unitsTSV
+    # globals$datasets$comparisionsTSV <- comparisionsTSV 
     
     
     endSection("Create workflow files")
   })
-  
   
   ## 8.0 Run Workflow ----
   observeEvent(input$runWorkflow, {
     startSection("Run workflow")
     
     ## Load globals
-    configSettings <- globals$dataframes$configSettings
-    unitsTSV <- globals$dataframes$unitsTSV
-    comparisionsTSV <- globals$dataframes$comparisionsTSV
+    configSettings <- globals$datasets$configSettings
+    unitsTSV <- globals$datasets$unitsTSV
+    comparisionsTSV <- globals$datasets$comparisionsTSV
     
     
     ## Inputs
     inputDir <- parseDirPath(rootDir,input$inputPathSelect)
     outputDir <- parseDirPath(rootDir,input$outputPathSelect)
     
-    
-    ## Make and save config file to input dir
     
     ## Make and save units to input dir
     
