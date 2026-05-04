@@ -9,7 +9,7 @@ if (!require("pacman", quietly = TRUE))
 # change back to individual loads
 pacman::p_load(shiny,bslib,shinyjs,shinyWidgets,bsicons,plotly,DT,readr,
                tidytable,colourpicker,pheatmap,grid,ggnewscale,stringr,
-               viridis,tibble,shinyFiles,readxl,writexl)
+               viridis,tibble,shinyFiles,readxl,writexl,yaml)
 
 
 ## 2.0 Load Basics ----

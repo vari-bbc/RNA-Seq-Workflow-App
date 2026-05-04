@@ -15,7 +15,7 @@
 #'
 build_YAML <- function(
     ref_genome_version = '2026-02-12_15.29.54_v23', 
-    species_name = 'human',
+    species_name = 'human_hg38_gencode',
     FDR = 0.1
 ) {
   
@@ -39,9 +39,12 @@ build_YAML <- function(
     pattern = "VERSION", 
     replacement = as.character(ref_genome_version)[1]
   )
+  
   # make additional modifications to YAML from input args
-  # < to do >
   master$modifiable_parameters[["FDR"]] <- FDR
+  
+  # do checks to make sure that all file.exist==TRUE
+  check_built_YAML(master_YAML=master,species_name=species_name)
   
   # write this out along with the other unchanged yaml
   write_yaml(
