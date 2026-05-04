@@ -2,19 +2,20 @@
 # App Startup ----
 
 if (!require("pacman", quietly = TRUE))
-    install.packages("pacman")
+    install.packages("pacman", repos = "https://cloud.r-project.org")
 
 
 ## 1.0 Load Libraries ----
 # change back to individual loads
 pacman::p_load(shiny,bslib,shinyjs,shinyWidgets,bsicons,plotly,DT,readr,
                tidytable,colourpicker,pheatmap,grid,ggnewscale,stringr,
-               viridis,tibble,shinyFiles,readxl,writexl,yaml)
+               viridis,tibble,shinyFiles,readxl,writexl,yaml,here)
 
 
 ## 2.0 Load Basics ----
+basePath <<- "/varidata/research/projects/bbc/research/BBC_20260415_RNA_Seq_App_VBCS-1647/RNA-Seq-Workflow-App/"
 functionFolderPath <<- "Functions"
-source(here::here(paste0(functionFolderPath,"/Updated Shiny RMD Standards.R")))
+source(paste0(basePath,functionFolderPath,"/Updated Shiny RMD Standards.R"))
 sourceFunctions(functionFolderPath)
 
 
@@ -22,7 +23,7 @@ sourceFunctions(functionFolderPath)
 # App Name here:
 appName <<- "RNA Seq Workflow Starter"
 # Necessary Files here:
-template <<- read_excel("Necessary Files/SampleTemplate.xlsx", sheet = 1)
+template <<- read_excel(paste0(basePath,"Necessary Files/SampleTemplate.xlsx"), sheet = 1)
 # Root Dir for Folder Selection:
 rootDir <<- c(Home = "~", "HPC Primary" = "~/../../primary", "HPC Secondary" = "~/../../secondary")
 restrictDir <<- c("afs","bin","cloudstorage","cm","dev","etc","legacy","lib",
