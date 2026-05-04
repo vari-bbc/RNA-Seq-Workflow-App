@@ -50,10 +50,10 @@ ui <- UINav(
     navSelect("refVersions", "Reference Version", "Single", "Locked", 
               theChoices = c("2026-02-12_15.29.54_v23","2025-12-18_22.42.45_v22")),
     navSelect("speciesSelect","Select the Species", "Single", "Locked",
-              theChoices = c("human","mouse","fly")),
-    navNumeric("fdrCutoff","FDR Cutoff", 0.01, tooltipText = "Default: 0.01"),
-    navCheckbox("pairedSingle","Single End", "False", 
-                tooltipText = "Default is Paired End, switch on to select Single End"),
+              theChoices = c("human_hg38_gencode","mouse_mm10_gencode","mouse_mm39_gencode")),
+    navNumeric("fdrCutoff","False discover rate", 0.01, tooltipText = "Default: 0.01"),
+    navSelect("pairedSingle","Paired-end or single-end genomics library", "Single", "Locked",
+              theChoices = c("Paired End","Single End")),
     navCheckbox("visBigWig","Run VisBigWig", "True"),
     navCheckbox("rSeqC","Run rSeqC", "True"),
     navSelect("relevantComps", "Select Comparisons", "Multi", "Locked"),
@@ -91,7 +91,7 @@ server <- function(session, input, output) {
     datasets = list(
       configSettings = data.frame(
         ref_genome_version = NA,
-        species_name = NA
+        speciesSelect = NA
         # And so on for every part we want changable
       ),
       unitsTSV = NULL,
@@ -213,6 +213,9 @@ server <- function(session, input, output) {
   observeEvent(input$refVersions,{
     globals$datasets$configSettings$ref_genome_version <- input$refVersions
   }, ignoreInit = TRUE)
+  observeEvent(input$speciesSelect,{
+    globals$datasets$configSettings$speciesSelect <- input$speciesSelect
+  }, ignoreInit = TRUE)
   
   
   ## 7.0 Create Workflow Files ----
@@ -223,11 +226,15 @@ server <- function(session, input, output) {
     configSettings <- globals$datasets$configSettings
     
     
+    ## print config options -- testing --
+    print(paste("Config option PE_or_SE",as.character(input$PE_or_SE),"\n"))
+    
     ## create the config.YAML
     build_YAML(
-      ref_genome_version = as.character(input$refVersions),
-      species_name       = as.character(input$speciesSelect),
-      FDR                = as.numeric(input$fdrCutoff)
+      ref_genome_version = as.character(configSettings$ref_genome_version),
+      species_name       = as.character(configSettings$speciesSelect),
+      fdrCutoff          = as.numeric(configSettings$fdrCutoff), # numeric
+      PE_or_SE           = as.character(configSettings$pairedSingle)
     )
     showNotification("Files created!", type = "message")
     
