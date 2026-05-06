@@ -38,10 +38,10 @@ ui <- UINav(
 
   ## 1.0 Input ----
   singleTab("Input File",
-    navDownload("templateDownload", "Download a Template",
-                tooltipText = "Required columns: Conditions, Sample ID, ..."),
-    navUpload("sampleUpload", "Upload your Sample Sheet", "Single"),
-    shinyDirButton("inputPathSelect","Select Fastq Input Folder",
+    # navDownload("templateDownload", "Download a Template",
+                # tooltipText = "Required columns: Conditions, Sample ID, ..."),
+    navUpload("sampleUpload", "Upload Sample Sheet (Library Export from Genomics)", "Single"),
+    shinyDirButton("inputPathSelect","Select FASTQ Input Folder",
                    "Please select a folder", viewtype = "icon"),
     shinyDirButton("outputPathSelect","Select Workflow Output Folder",
                    "Please select a folder", viewtype = "icon"),
@@ -196,8 +196,10 @@ server <- function(session, input, output) {
       # Interact with command line here
       # Copy github folder to outputDir
       repo.url <- "https://github.com/vari-bbc/rnaseq_workflow.git"
-      message('Downloading BBC rnaseq_workflow', repo.url)
-      system2("git", args = c("clone", repo.url, file.path(outputDir, gsub(pattern = '.git$',replacement = '',x = basename(repo.url)))))
+      repoName <- gsub(pattern = '.git$',replacement = '',x = basename(repo.url))
+      repoPath <- file.path(outputDir, repoName)
+      message('Downloading BBC rnaseq_workflow', repo.url, "into", repoPath)
+      system2("git", args = c("clone", repo.url, repoPath))
       # Sym link fastq files to proper github folder
       
       
@@ -208,6 +210,8 @@ server <- function(session, input, output) {
     updateSelectizeInput(session, "relevantComps", choices = theConditions, 
                          selected = theConditions)
     
+    globals$checks$filesCheck <- TRUE
+    
     endSection("Check files")
   })
   
@@ -215,6 +219,9 @@ server <- function(session, input, output) {
   ## 6.0 Create Workflow Files ----
   observeEvent(input$compileConfig, {
     startSection("Create workflow files")
+    
+    ## Load outdir
+    outputDir <- parseDirPath(rootDir,input$outputPathSelect)
     
     ## Load inputs
     refVersions <- input$refVersions
@@ -233,16 +240,18 @@ server <- function(session, input, output) {
       ## Create config file into output directory
       
       # print config options -- testing --
-      print(paste("Config option PE_or_SE",as.character(input$pairedSingle),"\n"))
+      print(paste("Config option PE_or_SE",pairedSingle,"\n"))
+      print(paste("outputDir",outputDir,"\n"))
       
       ## create the config.YAML
       build_YAML(
+        outputDir          = as.character(outputDir),
         ref_genome_version = as.character(refVersions),
         species_name       = as.character(speciesSelect),
         fdrCutoff          = as.numeric(fdrCutoff), # numeric
         PE_or_SE           = as.character(pairedSingle)
       )
-      showNotification("Files created!", type = "message")
+      showNotification(paste0("YAML created in ",outputDir,'/rnaseq_workflow/config/config.yaml'), type = "message")
       
       
       ## Create comparisons dataframe from selections
