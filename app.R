@@ -197,7 +197,7 @@ server <- function(session, input, output) {
       # Copy github folder to outputDir
       repo.url <- "https://github.com/vari-bbc/rnaseq_workflow.git"
       message('Downloading BBC rnaseq_workflow', repo.url)
-      system2("git", args = c("clone", repo.url, file.path(outputDir, basename(repo.url))))
+      system2("git", args = c("clone", repo.url, file.path(outputDir, gsub(pattern = '.git$',replacement = '',x = basename(repo.url)))))
       # Sym link fastq files to proper github folder
       
       
