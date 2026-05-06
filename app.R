@@ -132,7 +132,7 @@ server <- function(session, input, output) {
     
     # If it is:
     output$inputErrorText <- renderText({ paste0("The selected input directory is: ",inputDir) })
-    globals$checks$inputDirCheck <- T
+    globals$checks$inputDirCheck <- TRUE
     # If not:
     # output$inputErrorText <- renderText({ paste0("You do not have the correct permissions 
     #                                               for the following directory: ",inputDir) })
@@ -152,7 +152,7 @@ server <- function(session, input, output) {
     
     # If it is:
     output$outputErrorText <- renderText({ paste0("The selected output directory is: ",outputDir) })
-    globals$checks$outputDirCheck <- T
+    globals$checks$outputDirCheck <- TRUE
     # If not:
     # output$outputErrorText <- renderText({ paste0("You do not have the correct permissions 
     #                                               for the following directory: ",outputDir) })
@@ -190,7 +190,7 @@ server <- function(session, input, output) {
     # If not update the corresponding error messages
     
     # If everything is good, unlock the compileConfig button
-    if (globals$checks$inputDirCheck & globals$checks$outputDirCheck & globals$checks$filesCheck){
+    if (globals$checks$inputDirCheck & globals$checks$outputDirCheck){
       
       
       # Interact with command line here
