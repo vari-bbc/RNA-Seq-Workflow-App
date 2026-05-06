@@ -15,7 +15,7 @@ pacman::p_load(shiny,bslib,shinyjs,shinyWidgets,bsicons,plotly,DT,readr,
 ## 2.0 Load Basics ----
 functionFolderPath <<- "Functions"
 source(paste0(functionFolderPath,"/Updated Shiny RMD Standards.R"))
-sourceFunctions(paste0(basePath,functionFolderPath))
+sourceFunctions(functionFolderPath)
 
 
 ## 3.0 Universal Vars ----fr
@@ -174,7 +174,7 @@ server <- function(session, input, output) {
     
     
     ## Read in xlsx first page
-    inputFile <- read_xlsx(inputFilePath, sheet = 1)
+    #inputFile <- read_xlsx(inputFilePath, sheet = 1)
     
     ## Function to pull apart input file
     
@@ -189,14 +189,19 @@ server <- function(session, input, output) {
     # Check if input folder, output folder, and fastq files in input folder are good
     # If not update the corresponding error messages
     
-    # If everything is good, unlock the run workflow button
+    # If everything is good, unlock the compileConfig button
     if (globals$checks$inputDirCheck & globals$checks$outputDirCheck & globals$checks$filesCheck){
-      activateItems(c("compileConfig"))
+      
       
       # Interact with command line here
       # Copy github folder to outputDir
-      # Sim link fastq files to proper github folder
+      repo.url <- "https://github.com/vari-bbc/rnaseq_workflow.git"
+      message('Downloading BBC rnaseq_workflow', repo.url)
+      system2("git", args = c("clone", repo.url, outputDir))
+      # Sym link fastq files to proper github folder
       
+      
+      activateItems(c("compileConfig"))
     }
     
     # By default, select all conditions
