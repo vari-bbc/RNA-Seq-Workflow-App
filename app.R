@@ -24,7 +24,7 @@ appName <<- "RNA Seq Workflow Starter"
 # Necessary Files here:
 template <<- read_excel(paste0("Necessary Files/SampleTemplate.xlsx"), sheet = 1)
 # Root Dir for Folder Selection:
-rootDir <<- c(Home = "~", "HPC Primary" = "~/../../primary", "HPC Secondary" = "~/../../secondary")
+rootDir <<- c(Home = "~", "HPC Primary" = "~/../../primary", "HPC Secondary" = "~/../../secondary", "researchtemp" = "~/../../varidata/researchtemp/")
 restrictDir <<- c("afs","bin","cloudstorage","cm","dev","etc","legacy","lib",
                   "lib64","localdisk","media","mnt","opt","proc","root","run",
                   "sbin","srv","sys","tmp","usr")
@@ -40,7 +40,7 @@ ui <- UINav(
   singleTab("Input File",
     # navDownload("templateDownload", "Download a Template",
                 # tooltipText = "Required columns: Conditions, Sample ID, ..."),
-    navUpload("sampleUpload", "Upload Sample Sheet (Library Export from Genomics)", "Single"),
+    navUpload("sampleUpload", "Upload Genomics PRXXXXXX_Library_Export_YYYY_MM_DD.csv)", "Single"),
     shinyDirButton("inputPathSelect","Select FASTQ Input Folder",
                    "Please select a folder", viewtype = "icon"),
     shinyDirButton("outputPathSelect","Select Workflow Output Folder",
@@ -177,6 +177,7 @@ server <- function(session, input, output) {
     #inputFile <- read_xlsx(inputFilePath, sheet = 1)
     
     ## Function to pull apart input file
+    # check that all 'Library Name' 
     
     # Function should result in condition list
     theConditions <- c("condition1","condition2","condition3")
@@ -192,16 +193,15 @@ server <- function(session, input, output) {
     # If everything is good, unlock the compileConfig button
     if (globals$checks$inputDirCheck & globals$checks$outputDirCheck){
       
-      
-      # Interact with command line here
-      # Copy github folder to outputDir
+      # Clone github folder to outputDir
       repo.url <- "https://github.com/vari-bbc/rnaseq_workflow.git"
       repoName <- gsub(pattern = '.git$',replacement = '',x = basename(repo.url))
       repoPath <- file.path(outputDir, repoName)
       message('Downloading BBC rnaseq_workflow', repo.url, "into", repoPath)
       system2("git", args = c("clone", repo.url, repoPath))
-      # Sym link fastq files to proper github folder
       
+      # Sym link fastq files to proper github folder
+      inputFilePath
       
       activateItems(c("compileConfig"))
     }
