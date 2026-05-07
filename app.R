@@ -230,47 +230,27 @@ server <- function(session, input, output) {
     
     # If everything is good, unlock the compileConfig button
     # and download the rnaseq_workflow github repository
-    if (globals$checks$inputDirCheck & globals$checks$outputDirCheck){
       
       
-      
-      # Clone github folder to outputDir
-      repo.url <- "https://github.com/vari-bbc/rnaseq_workflow.git"
-      repoName <- gsub(pattern = '.git$',replacement = '',x = basename(repo.url))
-      repoPath <- file.path(outputDir, repoName)
-      # 
-      # # Check if repo already exists --
-      # if (dir.exists(repoPath) && length(list.files(repoPath)) > 0) {
-      #   shinyalert(
-      #     title = "'rnaseq_workflow' repository already exists in selected workflow output folder",
-      #     text  = paste0("'", repoPath, "' already exists and is not empty. Please choose a different output folder or remove the existing 'rnaseq_workflow' directory from ",outputDir,"."),
-      #     type  = "error"
-      #   )
-      #   return()  # or req(FALSE) if inside a reactive
-      # }
-      
-      message('Downloading BBC rnaseq_workflow', repo.url, "into", repoPath)
-      system2("git", args = c("clone", repo.url, repoPath))
-      output$gitCloneMessage <- renderText({ paste("Cloned",repoName,"into",repoPath) })
-      
-      # require that repo exists
-      # req(
-      # Sym link fastq files to repoPath/raw_data
-
-      message("getwd",getwd())
-      message("inputFilePath",inputDir)
-      message("repoPath",repoPath)
-      message("list.files(inputDir)",list.files(inputDir, pattern = "\\.fastq\\.gz$"))
-      
-      system2("ln", args = c(
-        "-s",
-        file.path(inputDir, list.files(inputDir, pattern = "\\.fastq\\.gz$")),
-        file.path(repoPath,'raw_data')
-      ))
-      output$symLinkFastq <- renderText({ paste("FASTQ Files ln -s OK -- Proceed to 'Options' Tab",repoName,"into",repoPath) })
-      
-      activateItems(c("compileConfig"))
-    }
+    # ==  Clone github folder to outputDir ==
+    repo.url <- "https://github.com/vari-bbc/rnaseq_workflow.git"
+    repoName <- gsub(pattern = '.git$',replacement = '',x = basename(repo.url))
+    repoPath <- file.path(outputDir, repoName)
+    message('Downloading BBC rnaseq_workflow', repo.url, "into", repoPath)
+    system2("git", args = c("clone", repo.url, repoPath))
+    output$gitCloneMessage <- renderText({ paste("Cloned",repoName,"into",repoPath) })
+  
+    # == Link the inputDir FASTQs to repoPath/raw_data ==
+    system2("ln", args = c(
+      "-s",
+      file.path(inputDir, list.files(inputDir, pattern = "\\.fastq\\.gz$")),
+      file.path(repoPath,'raw_data')
+    ))
+    output$symLinkFastq <- renderText({ paste("FASTQ Files ln -s OK -- Proceed to 'Options' Tab",repoName,"into",repoPath) })
+    
+    
+    activateItems(c("compileConfig"))
+    
     
     # By default, select all conditions
     updateSelectizeInput(session, "relevantComps", choices = theConditions, 
@@ -278,7 +258,8 @@ server <- function(session, input, output) {
     
     globals$checks$filesCheck <- TRUE
     
-    # Check if workflow is runnable -- should all be TRUE to get to here anyway ...
+    # == activate compileConfig ==
+    # ?? should all be TRUE to get to here anyway ... remove if() statement?
     if (globals$checks$inputDirCheck & globals$checks$outputDirCheck & globals$checks$filesCheck){
       activateItems(c("compileConfig"))
     }
