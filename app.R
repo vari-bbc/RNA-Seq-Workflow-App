@@ -121,7 +121,7 @@ server <- function(session, input, output) {
   
   ## 4.0 Select Folders ----
   # Input FASTQ folder
-  shinyDirChoose(input, "inputPathSelect", roots = rootDir, session = session, 
+  shinyDirChoose(input, "inputPathSelect", roots = rootDir, session = session, filetypes = character(0),
                  allowDirCreate = FALSE, hidden = FALSE, restrictions = restrictDir)
   
   observeEvent(input$inputPathSelect,{
@@ -152,7 +152,7 @@ server <- function(session, input, output) {
   })
   
   # Output folder
-  shinyDirChoose(input, "outputPathSelect", roots = rootDir, session = session, 
+  shinyDirChoose(input, "outputPathSelect", roots = rootDir, session = session, filetypes = character(0),
                  allowDirCreate = TRUE)
   observeEvent(input$outputPathSelect,{
     outputDir <- parseDirPath(rootDir,input$outputPathSelect)
@@ -162,7 +162,7 @@ server <- function(session, input, output) {
     
     # Check if selected directory is writable
     # Returns TRUE if writable, FALSE otherwise
-    is_writable <- file.access(inputDir, mode = 2) == 0
+    is_writable <- file.access(outputDir, mode = 2) == 0
     warning("is_writable: ",is_writable)
     if(is_writable == TRUE){
       output$outputErrorText <- renderText({ paste0("The selected output directory is: ",outputDir) })
@@ -210,6 +210,7 @@ server <- function(session, input, output) {
     # If not update the corresponding error messages
     
     # If everything is good, unlock the compileConfig button
+    # and download the rnaseq_workflow github repository
     if (globals$checks$inputDirCheck & globals$checks$outputDirCheck){
       
       # Clone github folder to outputDir
