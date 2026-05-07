@@ -17,6 +17,11 @@ Click "Connect to shiny app"
 ### Input File Tab
 
 Step 1. Select the Library_Template.csv
+
 Step 2. Select the FASTQ folder (e.g. 'HPC Primary' -> genomicscore -> XXXX.Lab -> PRXXXXXX_NNNN
+
 Step 3. Select the output folder to run the RNAseq workflow in.
+
 Step 4. Click 'Check Files and Folders' -- follow any instructions
+
+### Options Tab
