@@ -9,7 +9,7 @@ if (!require("pacman", quietly = TRUE))
 # change back to individual loads
 pacman::p_load(shiny,bslib,shinyjs,shinyWidgets,bsicons,plotly,DT,readr,
                tidytable,colourpicker,pheatmap,grid,ggnewscale,stringr,
-               viridis,tibble,shinyFiles,readxl,writexl,yaml,here)
+               viridis,tibble,shinyFiles,readxl,writexl,yaml,here,shinyalert)
 
 
 ## 2.0 Load Basics ----
@@ -120,46 +120,65 @@ server <- function(session, input, output) {
   )
   
   ## 4.0 Select Folders ----
-  # Input folder
+  # Input FASTQ folder
   shinyDirChoose(input, "inputPathSelect", roots = rootDir, session = session, 
-                 allowDirCreate = F, hidden = F, restrictions = restrictDir)
+                 allowDirCreate = FALSE, hidden = FALSE, restrictions = restrictDir)
   
   observeEvent(input$inputPathSelect,{
     inputDir <- parseDirPath(rootDir,input$inputPathSelect)
     
+    req(parseDirPath(rootDir, input$inputPathSelect) != "") # this stops code being run until a dir is selected
     
     # Check if selected directory is readable
-    
-    # If it is:
-    output$inputErrorText <- renderText({ paste0("The selected input directory is: ",inputDir) })
-    globals$checks$inputDirCheck <- TRUE
-    # If not:
-    # output$inputErrorText <- renderText({ paste0("You do not have the correct permissions 
-    #                                               for the following directory: ",inputDir) })
-    
-    # Check if workflow is runnable
-    if (globals$checks$inputDirCheck & globals$checks$outputDirCheck & globals$checks$filesCheck){
-      activateItems(c("compileConfig"))
+    # Returns TRUE if readable, FALSE otherwise
+    is_readable <- file.access(inputDir, mode = 4) == 0
+    warning("is_readable: ",is_readable)
+    if(is_readable == TRUE){
+      output$inputErrorText <- renderText({ paste0("The selected input directory is: ",inputDir) })
+      globals$checks$inputDirCheck <- TRUE
+      
+      # Check if workflow is runnable
+      if (globals$checks$inputDirCheck & globals$checks$outputDirCheck & globals$checks$filesCheck){
+        activateItems(c("compileConfig"))
+      }
+    }else{
+      shinyalert(
+        title = "Selected FASTQ Directory Not Readable",
+        text = paste("The selected directory is not readable:\n\n", inputDir,
+                     "\n\nPlease select a different directory with read permissions."),
+        type = "error"
+      )
     }
   })
   
   # Output folder
-  shinyDirChoose(input, "outputPathSelect", roots = rootDir, session = session)
+  shinyDirChoose(input, "outputPathSelect", roots = rootDir, session = session, 
+                 allowDirCreate = TRUE)
   observeEvent(input$outputPathSelect,{
     outputDir <- parseDirPath(rootDir,input$outputPathSelect)
     
     # Check if selected directory if writable
+    req(parseDirPath(rootDir, input$outputPathSelect) != "") # this stops code being run until a dir is selected
     
-    # If it is:
-    output$outputErrorText <- renderText({ paste0("The selected output directory is: ",outputDir) })
-    globals$checks$outputDirCheck <- TRUE
-    # If not:
-    # output$outputErrorText <- renderText({ paste0("You do not have the correct permissions 
-    #                                               for the following directory: ",outputDir) })
-    
-    # Check if workflow is runnable
-    if (globals$checks$inputDirCheck & globals$checks$outputDirCheck & globals$checks$filesCheck){
-      activateItems(c("compileConfig"))
+    # Check if selected directory is writable
+    # Returns TRUE if writable, FALSE otherwise
+    is_writable <- file.access(inputDir, mode = 2) == 0
+    warning("is_writable: ",is_writable)
+    if(is_writable == TRUE){
+      output$outputErrorText <- renderText({ paste0("The selected output directory is: ",outputDir) })
+      globals$checks$outputDirCheck <- TRUE
+      
+      # Check if workflow is runnable
+      if (globals$checks$inputDirCheck & globals$checks$outputDirCheck & globals$checks$filesCheck){
+        activateItems(c("compileConfig"))
+      }
+    }else{
+      shinyalert(
+        title = "Selected Output Directory Not Writable",
+        text = paste("The selected directory is not writable:\n\n", outputDir,
+                     "\n\nPlease select a different directory with write permissions."),
+        type = "error"
+      )
     }
   })
   
