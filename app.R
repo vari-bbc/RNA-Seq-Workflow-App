@@ -49,9 +49,9 @@ ui <- UINav(
     navOutputText("errorText"),
     navOutputText("inputErrorText"),
     navOutputText("outputErrorText"),
-    navOutputText("checkLibTemplate"),
     navOutputText("gitCloneMessage"),
-    navOutputText("symLinkFastq")
+    navOutputText("symLinkFastq"),
+    navOutputText("checkLibTemplate")
   ),
   
   ## 2.0 Input ----
@@ -90,7 +90,8 @@ server <- function(session, input, output) {
       inputDirCheck = F,
       outputDirCheck = F,
       filesCheck = F
-    )
+    ),
+    library_template = NULL
   )
   
   
@@ -113,14 +114,36 @@ server <- function(session, input, output) {
   
   
   ## 3.0 File Imports ----
-  output$templateDownload <- downloadHandler(
-    filename = function() {
-      paste("sampleTemplate.xlsx")
-    },
-    content = function(file) {
-      writexl::write_xlsx(template, file)
+  observeEvent(input$sampleUpload, {
+    req(input$sampleUpload)
+    
+    file <- input$sampleUpload
+    # Check file extension
+    ext <- tools::file_ext(file$name)
+    if (tolower(ext) != "csv") {
+      shinyalert::shinyalert(
+        title = "Invalid File Type",
+        text  = "Please upload a valid Genomics Library Template comma-separated values (.csv) file.",
+        type  = "error"
+      )
+      return()
     }
-  )
+    
+    # Read CSV into data.frame and save it as a global variable
+    df <- tryCatch({
+      read.csv(file$datapath, stringsAsFactors = FALSE)
+    }, error = function(e) {
+      shinyalert::shinyalert(
+        title = "Genomics Library Template File Read Error",
+        text  = paste("Could not read the Genomics Library Template:", e$message),
+        type  = "error"
+      )
+      return(NULL)
+    })
+    req(df)
+    globals$library_template <- df
+    
+  })
   
   ## 4.0 Select Folders ----
   # Input FASTQ folder
@@ -168,14 +191,14 @@ server <- function(session, input, output) {
     repo.url <- "https://github.com/vari-bbc/rnaseq_workflow.git"
     repoName <- gsub(pattern = '.git$',replacement = '',x = basename(repo.url))
     repoPath <- file.path(outputDir, repoName)
-    if (dir.exists(repoPath) && length(list.files(repoPath)) > 0) {
-      shinyalert(
-        title = "'rnaseq_workflow' repository already exists in selected workflow output folder",
-        text  = paste0("'", repoPath, "' already exists and is not empty. Please choose a different output folder or remove the existing 'rnaseq_workflow' directory from ",outputDir,"."),
-        type  = "error"
-      )
-      return()
-    }
+    # if (dir.exists(repoPath) && length(list.files(repoPath)) > 0) {
+    #   shinyalert(
+    #     title = "'rnaseq_workflow' repository already exists in selected workflow output folder",
+    #     text  = paste0("'", repoPath, "' already exists and is not empty. Please choose a different output folder or remove the existing 'rnaseq_workflow' directory from ",outputDir,"."),
+    #     type  = "error"
+    #   )
+    #   return()
+    # }
     
     
     # Check if selected directory is writable
@@ -201,7 +224,6 @@ server <- function(session, input, output) {
     }
   })
   
-  
   ## 5.0 Check Files ----
   observeEvent(input$checkFiles, {
     startSection("Check files")
@@ -211,12 +233,7 @@ server <- function(session, input, output) {
     outputDir <- parseDirPath(rootDir,input$outputPathSelect)
     
     
-    ## Read in xlsx first page
-    #inputFile <- read_xlsx(inputFilePath, sheet = 1)
     
-    ## Function to pull apart input file
-    # check that all 'Library Name' files are also FASTQS
-    output$checkLibTemplate <- renderText({ paste("Placeholder message for checking lib_template.csv against inputDir .fastq.gz files") })
     # Function should result in condition list
     theConditions <- c("condition1","condition2","condition3")
     
@@ -230,47 +247,48 @@ server <- function(session, input, output) {
     
     # If everything is good, unlock the compileConfig button
     # and download the rnaseq_workflow github repository
-    if (globals$checks$inputDirCheck & globals$checks$outputDirCheck){
       
       
-      
-      # Clone github folder to outputDir
-      repo.url <- "https://github.com/vari-bbc/rnaseq_workflow.git"
-      repoName <- gsub(pattern = '.git$',replacement = '',x = basename(repo.url))
-      repoPath <- file.path(outputDir, repoName)
-      # 
-      # # Check if repo already exists --
-      # if (dir.exists(repoPath) && length(list.files(repoPath)) > 0) {
-      #   shinyalert(
-      #     title = "'rnaseq_workflow' repository already exists in selected workflow output folder",
-      #     text  = paste0("'", repoPath, "' already exists and is not empty. Please choose a different output folder or remove the existing 'rnaseq_workflow' directory from ",outputDir,"."),
-      #     type  = "error"
-      #   )
-      #   return()  # or req(FALSE) if inside a reactive
-      # }
-      
-      message('Downloading BBC rnaseq_workflow', repo.url, "into", repoPath)
-      system2("git", args = c("clone", repo.url, repoPath))
-      output$gitCloneMessage <- renderText({ paste("Cloned",repoName,"into",repoPath) })
-      
-      # require that repo exists
-      # req(
-      # Sym link fastq files to repoPath/raw_data
-
-      message("getwd",getwd())
-      message("inputFilePath",inputDir)
-      message("repoPath",repoPath)
-      message("list.files(inputDir)",list.files(inputDir, pattern = "\\.fastq\\.gz$"))
-      
-      system2("ln", args = c(
-        "-s",
-        file.path(inputDir, list.files(inputDir, pattern = "\\.fastq\\.gz$")),
-        file.path(repoPath,'raw_data')
-      ))
-      output$symLinkFastq <- renderText({ paste("FASTQ Files ln -s OK -- Proceed to 'Options' Tab",repoName,"into",repoPath) })
-      
-      activateItems(c("compileConfig"))
-    }
+    # ==  Clone github folder to outputDir ==
+    repo.url <- "https://github.com/vari-bbc/rnaseq_workflow.git"
+    repoName <- gsub(pattern = '.git$',replacement = '',x = basename(repo.url))
+    repoPath <- file.path(outputDir, repoName)
+    message('Downloading BBC rnaseq_workflow', repo.url, "into", repoPath)
+    # system2("git", args = c("clone", repo.url, repoPath))
+    output$gitCloneMessage <- renderText({ paste("Cloned",repoName,"into",repoPath) })
+  
+    # == Link the inputDir FASTQs to repoPath/raw_data ==
+    system2("ln", args = c(
+      "-s",
+      file.path(inputDir, list.files(inputDir, pattern = "\\.fastq\\.gz$")),
+      file.path(repoPath,'raw_data')
+    ))
+    output$symLinkFastq <- renderText({ paste("FASTQ Files Linked",repoName,"into",repoPath) })
+    
+    # ==  Create the repoPath/config/samplesheet/units.tsv file
+    message("dim globals$library_template", dim(globals$library_template))
+    build_units_TSV_output <- build_units_TSV(
+      genomics_lib_template = globals$library_template,
+      repoName = repoPath
+    )
+    output$builtUnitsTsv <- renderText({ paste(repoName,"/config/samplesheet.csvinto",repoPath) })
+    
+    # ==   check that all expected 'Library Name' files are also FASTQS
+    
+    output$checkLibTemplate <- renderText({ paste("Placeholder message for checking lib_template.csv against inputDir .fastq.gz files") })
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     # By default, select all conditions
     updateSelectizeInput(session, "relevantComps", choices = theConditions, 
@@ -278,7 +296,8 @@ server <- function(session, input, output) {
     
     globals$checks$filesCheck <- TRUE
     
-    # Check if workflow is runnable -- should all be TRUE to get to here anyway ...
+    # == activate compileConfig ==
+    # ?? should all be TRUE to get to here anyway ... remove if() statement?
     if (globals$checks$inputDirCheck & globals$checks$outputDirCheck & globals$checks$filesCheck){
       activateItems(c("compileConfig"))
     }
