@@ -1,6 +1,4 @@
-#--------------------------------------------------------------------#
-# REFERENCE-SPECIFIC PARAMETERS 
-#--------------------------------------------------------------------#
+# == Reference Version ==
 
 human_hg38_gencode:
   ref:
@@ -81,19 +79,26 @@ mouse_mm39_gencode:
   # Choose which gene sets you would like to test against
   pathway_str: Reactome,BP,BP-simplified,KEGG,H,C1,C2,C3,C4,C5,C6,C7,C8
 
-#--------------------------------------------------------------------#
-# MODIFIABLE PARAMETERS 
-#--------------------------------------------------------------------#
-modifiable_parameters:
-  genes_of_interest: #DUSP1,KLF15,CRISPLD2 # create table in report of these genes, keep empty if no initial genes of interest.
 
+
+
+# == in-App Options ==
+modifiable_parameters:
   # FDR cutoff
-  fdr_cutoff: 0.1
+  fdr_cutoff: 0.05
   # are the sequencing reads paired-end ('PE') or single-end ('SE')
   PE_or_SE: PE
+  # path to sample sheet relative to the base project directory (containing config/, workflow/ etc)
+  units: config/samplesheet/units.tsv
+  comparisons: config/samplesheet/comparisons.tsv
+
+# == Unchanged ==
+unchanged:
   # Any additional column in "units.tsv" that should be treated as a numeric variable should be listed in a comma-separated list below - all others will be treated as categorical: 
   # For example: age,RIN,height,weight,temperature,dose; no commas required for a single variable
   numeric_variables: 
+
+  genes_of_interest: #DUSP1,KLF15,CRISPLD2 # create table in report of these genes, keep empty if no initial genes of interest.
 
   grouped_contigs: config/grouped_contigs.tsv 
 
@@ -101,12 +106,12 @@ modifiable_parameters:
   run_rseqc: False
 
   # R project config
-  Rproj_dirname: "VBCS-0000_Rproj"
+  Rproj_dirname: "App-Generated-Rproj"
   Rproj_init_git: False # if setting to True, ensure you have configured your identity for git. See https://git-scm.com/book/ms/v2/Getting-Started-First-Time-Git-Setup.
   ## use renv cache or install/copy all packages in project.
   renv_use_cache: True
   ## copy packages from user library if available?
-  renv_use_user_lib: True
+  renv_use_user_lib: False
   renv_symlink_from_cache: True #False
   # Use Pak to install packages
   renv_use_pak: False # I couldn't get pak to install to the renv cache which resulted in rebuilding the library each time; see https://github.com/r-lib/pak/issues/284
@@ -118,22 +123,7 @@ modifiable_parameters:
   deploy_to_shinyio: False
   shinyio_account_name: "vai-bbc" # valid account names can be found using rsconnect::accounts(); If blank, follow instructions at https://docs.posit.co/shinyapps.io/guide/getting_started/#configure-rsconnect 
   
-  # path to sample sheet relative to the base project directory (containing config/, workflow/ etc)
-  units: config/samplesheet/units.tsv
-  comparisons: config/samplesheet/comparisons.tsv
-
-#--------------------------------------------------------------------#
-# UNCHANGED PARAMETERS 
-#--------------------------------------------------------------------#
-unchanged:
-  ####################################################################
-  # FOR MOST STANDARD USE CASES, THE BELOW DO NOT NEED TO BE CHANGED.#
-  ####################################################################
-  
-  # variant calling NOT allowed for app-based workflow running 
   call_variants: False
-
-
 
   sortmerna:
       rfam5_8s: /varidata/research/software/BBC/sortmerna/sortmerna-4.3.6-Linux/rRNA_databases/rfam-5.8s-database-id98.fasta
