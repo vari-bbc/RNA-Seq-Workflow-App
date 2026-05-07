@@ -88,12 +88,13 @@ modifiable_parameters:
   fdr_cutoff: 0.05
   # are the sequencing reads paired-end ('PE') or single-end ('SE')
   PE_or_SE: PE
-  # path to sample sheet relative to the base project directory (containing config/, workflow/ etc)
-  units: config/samplesheet/units.tsv
-  comparisons: config/samplesheet/comparisons.tsv
 
 # == Unchanged ==
 unchanged:
+  # path to sample sheet relative to the base project directory (containing config/, workflow/ etc)
+  units: config/samplesheet/units.tsv
+  comparisons: config/samplesheet/comparisons.tsv
+  
   # Any additional column in "units.tsv" that should be treated as a numeric variable should be listed in a comma-separated list below - all others will be treated as categorical: 
   # For example: age,RIN,height,weight,temperature,dose; no commas required for a single variable
   numeric_variables: 
