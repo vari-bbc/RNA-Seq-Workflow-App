@@ -19,6 +19,7 @@ build_units_TSV <- function(
     fq2_suffix = '_L000_R2_001.fastq.gz'
 ) {
   
+  # expand this to check all columns in lib template and pass warning 1, 2 , 3 w/ error messages in app
   columns.in <- c(
     'Library.Name',
     'genotype',

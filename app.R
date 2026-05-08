@@ -42,19 +42,20 @@ ui <- UINav(
                 # tooltipText = "Required columns: Conditions, Sample ID, ..."),
     navUpload("sampleUpload", "Upload Genomics PRXXXXXX_Library_Export_YYYY_MM_DD.csv)", "Single"),
     shinyDirButton("inputPathSelect","Select FASTQ Input Folder",
-                   "Please select a folder", viewtype = "icon"),
+                   "Please select folder with FASTQs", viewtype = "icon"),
     shinyDirButton("outputPathSelect","Select Workflow Output Folder",
-                   "Please select a folder", viewtype = "icon"),
+                   "Please select a folder to run the analysis", viewtype = "icon"),
     navButton("checkFiles", "Check Files and Folders"),
     navOutputText("errorText"),
     navOutputText("inputErrorText"),
     navOutputText("outputErrorText"),
     navOutputText("gitCloneMessage"),
     navOutputText("symLinkFastq"),
-    navOutputText("checkLibTemplate")
+    navOutputText("checkLibTemplate"),
+    navOutputText("proceedToOptionsTab")
   ),
   
-  ## 2.0 Input ----
+  ## 2.0 Options tab ----
   singleTab("Options",
     navSelect("refVersions", "Reference Version", "Single", "Locked", 
               theChoices = c("2026-02-12_15.29.54_v23","2025-12-18_22.42.45_v22")),
@@ -224,7 +225,7 @@ server <- function(session, input, output) {
     }
   })
   
-  ## 5.0 Check Files ----
+  ## 5.0 Check Files & Create units.tsv ----
   observeEvent(input$checkFiles, {
     startSection("Check files")
     
@@ -275,6 +276,8 @@ server <- function(session, input, output) {
     
     # ==   check that all expected 'Library Name' files are also FASTQS
     
+    # to do #
+    
     output$checkLibTemplate <- renderText({ paste("Placeholder message for checking lib_template.csv against inputDir .fastq.gz files") })
     
     
@@ -297,16 +300,23 @@ server <- function(session, input, output) {
     globals$checks$filesCheck <- TRUE
     
     # == activate compileConfig ==
+    # == message proceed to options tab ==
     # ?? should all be TRUE to get to here anyway ... remove if() statement?
     if (globals$checks$inputDirCheck & globals$checks$outputDirCheck & globals$checks$filesCheck){
       activateItems(c("compileConfig"))
+      
+      shinyalert::shinyalert(
+        title = "Done with Input Files tab",
+        text  = "Proceed to 'Options' tab",
+        type  = "success"
+      )
     }
     
     endSection("Check files")
   })
   
   
-  ## 6.0 Create Workflow Files ----
+  ## 6.0 Create Config.yaml ----
   observeEvent(input$compileConfig, {
     startSection("Create workflow files")
     
@@ -320,18 +330,15 @@ server <- function(session, input, output) {
     pairedSingle <- input$pairedSingle
     visBigWig <- input$visBigWig
     rSeqC <- input$rSeqC
-    relevantComps <- input$relevantComps
+    # relevantComps <- input$relevantComps # move this to comparisons tab
     
-    
-    ## Check that there are a minimum of 2 conditions selected first!
-    
-    ## Check that the output folder, input folder, and fastq files are good
+    ## Check that the output folder, input folder, and fastq files are good to go
     if (globals$checks$inputDirCheck & globals$checks$outputDirCheck & globals$checks$filesCheck){
       ## Create config file into output directory
       
       # print config options -- testing --
-      print(paste("Config option PE_or_SE",pairedSingle,"\n"))
-      print(paste("outputDir",outputDir,"\n"))
+      # print(paste("Config option PE_or_SE",pairedSingle,"\n"))
+      # print(paste("outputDir",outputDir,"\n"))
       
       ## create the config.YAML
       build_YAML(
@@ -339,7 +346,9 @@ server <- function(session, input, output) {
         ref_genome_version = as.character(refVersions),
         species_name       = as.character(speciesSelect),
         fdrCutoff          = as.numeric(fdrCutoff), # numeric
-        PE_or_SE           = as.character(pairedSingle)
+        PE_or_SE           = as.character(pairedSingle),
+        run_rseqc          = as.logical(rSeqC),
+        run_vis_bigwig          = as.logical(visBigWig)
       )
       showNotification(paste0("YAML created in ",outputDir,'/rnaseq_workflow/config/config.yaml'), type = "message")
       
@@ -354,21 +363,28 @@ server <- function(session, input, output) {
       
       # Create zip folder of config file, unit file, and comparison file
       activateItems(c("workflowFiles"))
-      output$workflowFiles <- downloadHandler(
-        filename = function() {
-          "RNA Seq Workflow Files.zip"
-        },
-        content = function(file) {
-          disable("workflowFiles")
-          # Make config file (should be a function to use again later)
-          
-          # Make other two dataframes into files
-          
-          # Combine all three files into one zip
-          
-          print("Done Downloading zip")
-        }
+      
+      shinyalert::shinyalert(
+        title = "Options Saved",
+        text  = "Proceed to 'Select Comparisons and Run' tab",
+        type  = "success"
       )
+      
+      # output$workflowFiles <- downloadHandler(
+      #   filename = function() {
+      #     "RNA Seq Workflow Files.zip"
+      #   },
+      #   content = function(file) {
+      #     disable("workflowFiles")
+      #     # Make config file (should be a function to use again later)
+      #     
+      #     # Make other two dataframes into files
+      #     
+      #     # Combine all three files into one zip
+      #     
+      #     print("Done Downloading zip")
+      #   }
+      # )
       
     }
     
