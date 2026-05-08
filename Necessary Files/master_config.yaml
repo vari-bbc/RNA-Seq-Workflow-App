@@ -88,6 +88,8 @@ modifiable_parameters:
   fdr_cutoff: 0.05
   # are the sequencing reads paired-end ('PE') or single-end ('SE')
   PE_or_SE: PE
+  run_vis_bigwig : False
+  run_rseqc: False
 
 # == Unchanged ==
 unchanged:
@@ -103,8 +105,7 @@ unchanged:
 
   grouped_contigs: config/grouped_contigs.tsv 
 
-  run_vis_bigwig : False
-  run_rseqc: False
+
 
   # R project config
   Rproj_dirname: "App-Generated-Rproj"
