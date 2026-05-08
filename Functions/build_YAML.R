@@ -2,37 +2,50 @@
 #'
 #' This is the description.
 #'
-#' These are further details.
+#' parameters of this function are used to replace key-value pairs in app/Necessary Files/master_config.yaml 
+#' YAML with updated values is written to outputDir/rnaseq_workflow/config/config.yaml 
 #'
 #'
 #' @param ref_genome_version reference genome version to use 
 #' @param species_name species to use, e.g. human, mouse, fly.
-#'
+#' @param fdrCutoff FDR to use with rnaseq_workflow
+#' @param PE_or_SE PE_or_SE
+#' @param 
+#' @param 
+#' @param 
+#' @param 
+#' @param 
+#' @param 
+#' 
 #' @export
 #'
 #' @examples
 #' add_numbers(1, 2) ## returns 3
 #'
 build_YAML <- function(
-    ref_genome_version = '2026-02-12_15.29.54_v23', 
-    species_name = 'human_hg38_gencode',
-    fdrCutoff = 0.05,
-    PE_or_SE = 'PE'
+    outputDir = 'default_outputDir',
+    ref_genome_version = 'default_ref_version', 
+    species_name = 'default_species_name',
+    fdrCutoff = 1,
+    PE_or_SE = 'default paired-end',
+    run_rseqc = FALSE,
+    run_vis_bigwig = FALSE
 ) {
   
   if (!requireNamespace("yaml", quietly = TRUE)) {
     stop("Package 'yaml' is required. Install with: install.packages('yaml')")
   }
   
+  message("Options from build_YAML.R")
   message("ref_genome_version: ", ref_genome_version)
   message("class: ", class(ref_genome_version))
   message("length: ", length(ref_genome_version))
   message("species_name: ", species_name)
   
-  #----------------------------------------------------------------------------#
-  # first import the template master YAML
-  #----------------------------------------------------------------------------#
-  stopifnot(file.exists('Necessary\ Files/master_config.yaml'))
+  # check FDR ?
+  # stopifnot(is.numeric(fdrCutoff), fdrCutoff >= 0, fdrCutoff <= 1)
+  
+  # =========== import the template master YAML #
   master <- yaml::read_yaml('Necessary\ Files/master_config.yaml')
   
   #----------------------------------------------------------------------------#
@@ -54,26 +67,20 @@ build_YAML <- function(
   }else{
     master$modifiable_parameters[["PE_or_SE"]] <- 'PE'
   }
-  
-  
-  
+  master$modifiable_parameters[["run_rseqc"]] <- run_rseqc
+  master$modifiable_parameters[["run_vis_bigwig"]] <- run_vis_bigwig
   #----------------------------------------------------------------------------#
   # do checks to make sure that all file.exist==TRUE
   #----------------------------------------------------------------------------#
   # check_built_YAML(master_YAML=master,species_name=species_name)
   
-  
-  
-  #----------------------------------------------------------------------------#
-  # write this out along with the other unchanged yaml
-  #----------------------------------------------------------------------------#
   write_yaml(
     c(
       master[[species_name]],
       master[["modifiable_parameters"]],
       master[["unchanged"]]
     ),
-    "output_config.yaml"
+    paste0(outputDir,"/rnaseq_workflow/config/config.yaml")
   )
 
 

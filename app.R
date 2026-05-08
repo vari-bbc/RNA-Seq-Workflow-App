@@ -46,13 +46,12 @@ ui <- UINav(
     shinyDirButton("outputPathSelect","Select Workflow Output Folder",
                    "Please select a folder to run the analysis", viewtype = "icon"),
     navButton("checkFiles", "Check Files and Folders"),
-    navOutputText("errorText"),
     navOutputText("inputErrorText"),
     navOutputText("outputErrorText"),
     navOutputText("gitCloneMessage"),
     navOutputText("symLinkFastq"),
-    navOutputText("checkLibTemplate"),
-    navOutputText("proceedToOptionsTab")
+    tableOutput("showUnitsTSV"),
+    navOutputText("checkLibTemplate")
   ),
   
   ## 2.0 Options tab ----
@@ -61,7 +60,7 @@ ui <- UINav(
               theChoices = c("2026-02-12_15.29.54_v23","2025-12-18_22.42.45_v22")),
     navSelect("speciesSelect","Select the Species", "Single", "Locked",
               theChoices = c("human_hg38_gencode","mouse_mm10_gencode","mouse_mm39_gencode")),
-    navNumeric("fdrCutoff","False discover rate", 0.01, tooltipText = "Default: 0.01"),
+    navNumeric("fdrCutoff","False discover rate", 0.01, tooltipText = "Default: 0.01",min=0,max=1),
     navSelect("pairedSingle","Paired-end or single-end genomics library", "Single", "Locked",
               theChoices = c("Paired End","Single End")),
     navCheckbox("visBigWig","Run VisBigWig", "True"),
@@ -92,7 +91,8 @@ server <- function(session, input, output) {
       outputDirCheck = F,
       filesCheck = F
     ),
-    library_template = NULL
+    library_template = NULL,
+    library_template_path = NULL
   )
   
   
@@ -108,7 +108,7 @@ server <- function(session, input, output) {
     deactivateItems(c("workflowFiles"))
     
     #Unnecessary for final app, actually used elsewhere
-    output$errorText <- renderText({ "Text here will display if sample sheet is proper" })
+    # output$errorText <- renderText({ "Text here will display if sample sheet is proper" })
     
     endSection("Run on Start")
   })
@@ -119,6 +119,7 @@ server <- function(session, input, output) {
     req(input$sampleUpload)
     
     file <- input$sampleUpload
+    globals$library_template_path <- file$name
     # Check file extension
     ext <- tools::file_ext(file$name)
     if (tolower(ext) != "csv") {
@@ -143,6 +144,7 @@ server <- function(session, input, output) {
     })
     req(df)
     globals$library_template <- df
+    
     
   })
   
@@ -205,7 +207,7 @@ server <- function(session, input, output) {
     # Check if selected directory is writable
     # Returns TRUE if writable, FALSE otherwise
     is_writable <- file.access(outputDir, mode = 2) == 0
-    warning("is_writable: ",is_writable)
+    # warning("is_writable: ",is_writable)
     if(is_writable == TRUE){
       output$outputErrorText <- renderText({ paste0("The selected output directory is: ",outputDir) })
       globals$checks$outputDirCheck <- TRUE
@@ -255,7 +257,7 @@ server <- function(session, input, output) {
     repoName <- gsub(pattern = '.git$',replacement = '',x = basename(repo.url))
     repoPath <- file.path(outputDir, repoName)
     message('Downloading BBC rnaseq_workflow', repo.url, "into", repoPath)
-    # system2("git", args = c("clone", repo.url, repoPath))
+    system2("git", args = c("clone", repo.url, repoPath))
     output$gitCloneMessage <- renderText({ paste("Cloned",repoName,"into",repoPath) })
   
     # == Link the inputDir FASTQs to repoPath/raw_data ==
@@ -266,30 +268,54 @@ server <- function(session, input, output) {
     ))
     output$symLinkFastq <- renderText({ paste("FASTQ Files Linked",repoName,"into",repoPath) })
     
+    
+    
     # ==  Create the repoPath/config/samplesheet/units.tsv file
-    message("dim globals$library_template", dim(globals$library_template))
-    build_units_TSV_output <- build_units_TSV(
-      genomics_lib_template = globals$library_template,
-      repoName = repoPath
-    )
-    output$builtUnitsTsv <- renderText({ paste(repoName,"/config/samplesheet.csvinto",repoPath) })
+    tryCatch({
+      build_units_TSV_output <- build_units_TSV(
+        inputFile = globals$library_template_path,
+        genomics_lib_template = globals$library_template,
+        repoName = repoPath
+      )
+      globals$checks$filesCheck <- TRUE
+      
+      message("value of build_units_TSV_output[['all_fq1_found']]:",build_units_TSV_output[['all_fq1_found']])
+      message("value of build_units_TSV_output[['all_fq2_found']]:",build_units_TSV_output[['all_fq2_found']])
+      # === warnings if fq1 or fq2 files not found
+      if(build_units_TSV_output[['all_fq1_found']]==FALSE){
+        shinyalert(
+          title = "fq1 files missing!",
+          text  = paste0("Not all read 1 FASTQs from fq1 column of ",repoPath,"/config/samplesheet/units.tsv were found in ",inputDir,"."),
+          type  = "warning"
+        )
+        globals$checks$filesCheck <- FALSE
+      }
+      if(build_units_TSV_output[['all_fq2_found']]==FALSE){
+        shinyalert(
+          title = "fq2 files missing!",
+          text  = paste0("Not all read 2 FASTQs from fq2 column of ",repoPath,"/config/samplesheet/units.tsv were found in ",inputDir,"."),
+          type  = "warning"
+        )
+        globals$checks$filesCheck <- FALSE
+      }
+    }, error = function(e) {
+      showNotification(e$message, type = "error")
+        shinyalert(
+              title = "Columns missing from input file!",
+              text  = paste(e$message,"\n\n","Please contact bbc@vai.org with questions"),
+              type  = "error"
+        )
+        globals$checks$filesCheck <- FALSE
+    })
+    output$builtUnitsTsv <- renderText({ paste0("Built ",repoPath,"/config/samplesheet/units.tsv") })
     
-    # ==   check that all expected 'Library Name' files are also FASTQS
+    # units <- build_units_TSV_output[['units']]
+    # table(units$group)
+    # output$showUnitsTSV <- renderTable({ units })
     
-    # to do #
-    
-    output$checkLibTemplate <- renderText({ paste("Placeholder message for checking lib_template.csv against inputDir .fastq.gz files") })
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+   
+  
+   
     
     
     
@@ -297,7 +323,7 @@ server <- function(session, input, output) {
     updateSelectizeInput(session, "relevantComps", choices = theConditions, 
                          selected = theConditions)
     
-    globals$checks$filesCheck <- TRUE
+    
     
     # == activate compileConfig ==
     # == message proceed to options tab ==
@@ -309,6 +335,12 @@ server <- function(session, input, output) {
         title = "Done with Input Files tab",
         text  = "Proceed to 'Options' tab",
         type  = "success"
+      )
+    }else{
+      shinyalert::shinyalert(
+        title = "Something not right ",
+        text  = "redo 'Files Input' tab -- following warnings/errors",
+        type  = "info"
       )
     }
     

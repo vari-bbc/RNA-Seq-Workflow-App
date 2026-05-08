@@ -13,6 +13,7 @@
 #' @examples
 #'
 build_units_TSV <- function(
+    inputFile = NULL,
     genomics_lib_template = NULL,
     repoName = NULL,
     fq1_suffix = '_L000_R1_001.fastq.gz',
@@ -20,8 +21,9 @@ build_units_TSV <- function(
 ) {
   
   # expand this to check all columns in lib template and pass warning 1, 2 , 3 w/ error messages in app
+  columnsFromGenomics <- c('Library.Name')
+  
   columns.in <- c(
-    'Library.Name',
     'genotype',
     'cell.line',
     'cell.type',
@@ -30,28 +32,54 @@ build_units_TSV <- function(
     'condition',
     'group'
   )
-  
-  # message('genomics_lib_template class',class(genomics_lib_template))
+  i <- length(which(columns.in %in% colnames(genomics_lib_template)))
+  # require that a minimum of one of columns.in present
+  # warning('length of i is',length(i))
+  # print(paste('inputFile value:',inputFile))
+    
   stopifnot(is.data.frame(genomics_lib_template))
-  
+  if (i<1) stop(paste("None of these columns found in ",inputFile,":\n",paste(columns.in,collapse="\n")))
   # print(colnames(genomics_lib_template))
   
-  tmp <- genomics_lib_template %>% dplyr::select(
-    any_of(columns.in))
+  units <- genomics_lib_template %>% dplyr::select(
+    any_of(c(columnsFromGenomics,columns.in))
+  )
   
   # set RG column to null
-  tmp$RG <- NA
+  units$RG <- NA
   
-  tmp <- tmp %>% 
+  units <- units %>% 
     dplyr::rename('sample'='Library.Name')  %>%
     dplyr::mutate(
       fq1 = paste0(sample,fq1_suffix),
       fq2 = paste0(sample,fq2_suffix)
     ) %>% dplyr::select('sample', 'fq1', 'fq2', 'RG', everything())
   
-  readr::write_delim(tmp,file=file.path(repoName,'config/samplesheet/units.tsv'),
+  readr::write_delim(units,file=file.path(repoName,'config/samplesheet/units.tsv'),
               delim="\t",quote="none")
   
-  all_files_found <- TRUE
-  return(tmp)
+  # ==   check that all expected 'Library Name' files are also FASTQS
+  fefq1 <- lapply(units$fq1,FUN=function(fq){
+    path <- file.path(repoName,'raw_data',fq)
+    exists <- file.exists(path)
+    if (!exists) message("NOT FOUND: ", path)
+    return(exists)
+  })
+  all_fq1_found <- all(unlist(fefq1)==TRUE)
+  fefq2 <- lapply(units$fq2,FUN=function(fq){
+    path <- file.path(repoName,'raw_data',fq)
+    exists <- file.exists(path)
+    if (!exists) message("NOT FOUND: ", path)
+    return(exists)
+  })
+  all_fq2_found <- all(unlist(fefq2)==TRUE)
+  
+  
+  return(
+    list(
+      'units' = units,
+      'all_fq1_found' = all_fq1_found,
+      'all_fq2_found' = all_fq2_found
+    )
+  )
 }
