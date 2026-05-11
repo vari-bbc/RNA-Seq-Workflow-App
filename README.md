@@ -14,14 +14,26 @@ Click "Connect to shiny app"
 
 ## Using the app
 
-### Input File Tab
+### Step 1. Input Files
 
-Step 1. Select the Library_Template.csv
+Step 1.1 Upload Genomics Library Export CSV.
 
-Step 2. Select the FASTQ folder (e.g. 'HPC Primary' -> genomicscore -> XXXX.Lab -> PRXXXXXX_NNNN
+Step 1.2 Select FASTQ Input Folder (e.g. 'HPC Primary' -> genomicscore -> XXXX.Lab -> PRXXXXXX_NNNN).
 
-Step 3. Select the output folder to run the RNAseq workflow in.
+Step 1.3 Select Workflow Output Folder. 
 
-Step 4. Click 'Check Files and Folders' -- follow any instructions
+Step 1.4 Click 'Validate Samplesheet, FASTQs, Output Folder' -- Follow any messages
 
-### Options Tab
+### Step 2. Options
+
+Change configuration options as needed. Click 'Compile Config'
+
+### Step 3. Select Comparisons 
+
+Click 'Autogenerate contrasts from units.tsv'
+
+### Step 4. Run Workflow
+
+Click 'Start Snakemake RNAseq Workflow'
+
+
