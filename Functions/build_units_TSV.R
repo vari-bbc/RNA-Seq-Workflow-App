@@ -32,14 +32,22 @@ build_units_TSV <- function(
     'condition',
     'group'
   )
-  i <- length(which(columns.in %in% colnames(genomics_lib_template)))
+  ci <- which(colnames(genomics_lib_template) %in% columns.in)
+  i <- length(ci)
   # require that a minimum of one of columns.in present
   # warning('length of i is',length(i))
   # print(paste('inputFile value:',inputFile))
     
-  stopifnot(is.data.frame(genomics_lib_template))
+  # stopifnot(is.data.frame(genomics_lib_template))
   if (i<1) stop(paste("None of these columns found in ",inputFile,":\n",paste(columns.in,collapse="\n")))
   # print(colnames(genomics_lib_template))
+  
+  # validate that anyof the columns.in have more than two levels
+  j <- unlist(lapply(ci,FUN=function(x){
+    length(unique(genomics_lib_template[,ci]))
+  }))
+  warning('value of j',j)
+  if (!any(j>1)) stop(paste("None of these columns in ",inputFile," have >1 level:\n",paste(columns.in,collapse="\n")))
   
   units <- genomics_lib_template %>% dplyr::select(
     any_of(c(columnsFromGenomics,columns.in))
