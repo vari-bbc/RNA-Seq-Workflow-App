@@ -471,7 +471,7 @@ server <- function(session, input, output) {
         squeue_output <- system2("squeue", args = c("-j", job_id), stdout = TRUE)
         paste(squeue_output, collapse = "\n")
       })
-      output$errorFilesEmail <- renderText({ paste0('An email will be sent to ',email,' when JOBID ',job_id,' is finished.') })
+      output$errorFilesEmail <- renderText({ paste0('An email will be sent to ',email,' when JOBID ',job_id,' is finished.\nSLURM output and error files are rnaseq_workflow_app_run.o and rnaseq_workflow_app_run.e in ',repoPath) })
       deactivateItems("runWorkflow") # don't let user run again if already launched
       activateItems("checkStatus")
       
