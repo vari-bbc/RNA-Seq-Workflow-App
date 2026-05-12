@@ -79,9 +79,6 @@ mouse_mm39_gencode:
   # Choose which gene sets you would like to test against
   pathway_str: Reactome,BP,BP-simplified,KEGG,H,C1,C2,C3,C4,C5,C6,C7,C8
 
-
-
-
 # == in-App Options ==
 modifiable_parameters:
   # FDR cutoff
@@ -93,6 +90,9 @@ modifiable_parameters:
 
 # == Unchanged ==
 unchanged:
+  quick_ref:
+    ref_genome_version:       # The earliest recommended version is 2021-08-10_11.12.27_v6. Note that the Salmon index might not exist for earlier versions.
+    species_name: #hg38_gencode 
   # path to sample sheet relative to the base project directory (containing config/, workflow/ etc)
   units: config/samplesheet/units.tsv
   comparisons: config/samplesheet/comparisons.tsv
