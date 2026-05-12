@@ -61,7 +61,7 @@ ui <- UINav(
               theChoices = c("2026-02-12_15.29.54_v23","2025-12-18_22.42.45_v22")),
     navSelect("speciesSelect","Select the Species", "Single", "Locked",
               theChoices = c("human_hg38_gencode","mouse_mm10_gencode","mouse_mm39_gencode")),
-    navNumeric("fdrCutoff","False discover rate", 0.01, tooltipText = "Default: 0.01",min=0,max=1),
+    navNumeric("fdrCutoff","False discover rate", 0.01, tooltipText = "Default: 0.01", min=0, max=1),
     navSelect("pairedSingle","Paired-end or single-end genomics library", "Single", "Locked",
               theChoices = c("Paired End","Single End")),
     navCheckbox("visBigWig","Run VisBigWig", "True"),
