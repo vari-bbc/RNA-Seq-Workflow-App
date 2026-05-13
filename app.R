@@ -9,7 +9,7 @@ if (!require("pacman", quietly = TRUE))
 # change back to individual loads
 pacman::p_load(shiny,bslib,shinyjs,shinyWidgets,bsicons,plotly,DT,readr,
                tidytable,colourpicker,pheatmap,grid,ggnewscale,stringr,
-               viridis,tibble,shinyFiles,readxl,writexl,yaml,here,shinyalert)
+               viridis,tibble,shinyFiles,readxl,writexl,yaml,here,shinyjs,shinyalert,shinyFiles)
 
 
 ## 2.0 Load Basics ----
@@ -35,204 +35,380 @@ restrictDir <<- c("afs","bin","cloudstorage","cm","dev","etc","legacy","lib",
 # Ensure use of document outline and preloading as many inputs as possible
 # Tool tips are last in nav item and should be specified with tooltipText = "..."
 ui <- UINav(
-
-  ## 1.0 Input ----
-  singleTab("Step 1: Input Files",
-    # navDownload("templateDownload", "Download a Template",
-                # tooltipText = "Required columns: Conditions, Sample ID, ..."),
-    navUpload("sampleUpload", "Upload Genomics Library Export (i.e. PRXXXXXX_Library_Export_YYYY_MM_DD.csv)", "Single"),
-    shinyDirButton("inputPathSelect","Select FASTQ Input Folder",
-                   "Please select folder with FASTQs", viewtype = "icon"),
-    shinyDirButton("outputPathSelect","Select Workflow Output Folder",
-                   "Please select a folder to run the analysis", viewtype = "icon"),
-    navButton("checkFiles", "Validate Samplesheet, FASTQs, Output Folder"),
-    navOutputText("inputErrorText"),
-    navOutputText("outputErrorText"),
-    navOutputText("gitCloneMessage"),
-    navOutputText("symLinkFastq"),
-    navOutputText("fqFound"),
-    navOutputText("builtUnitsTsv"),
-    tableOutput("showUnitsTSV"),
-  ),
-  
-  ## 2.0 Options tab ----
-  singleTab("Step 2: Options",
-    navSelect("refVersions", "Reference Version", "Single", "Locked", 
-              theChoices = c("2026-02-12_15.29.54_v23","2025-12-18_22.42.45_v22")),
-    navSelect("speciesSelect","Select the Species", "Single", "Locked",
-              theChoices = c("human_hg38_gencode","mouse_mm10_gencode","mouse_mm39_gencode")),
-    navNumeric("fdrCutoff","False discover rate", 0.01, tooltipText = "Default: 0.01", min=0, max=1),
-    navSelect("pairedSingle","Paired-end or single-end genomics library", "Single", "Locked",
-              theChoices = c("Paired End","Single End")),
-    navCheckbox("visBigWig","Run VisBigWig", "True"),
-    navCheckbox("rSeqC","Run rSeqC", "True"),
-    actionButton("compileConfig","Compile Config"),
-    hr(),
-    # navDownload("workflowFiles","Download a Zip of the Workflow Input Files")
-  ),
-  singleTab("Step 3: Select Comparisons",
-    fluidRow(
-      column(12,
-       p("'comparisons.tsv' is used to run differential expression contrasts in the RNAseq workflow."),
-       # p("From the column group, we have identified the following available contrasts."),
-       p("We are working to build more options. For now, contact bbc@vai.org for help building more complicated contrasts.")
+  useShinyjs(),
+  uiOutput("tab_buttons"), 
+  # progressBar(id = "workflow_progress", value = 1, total = 6, display_pct = FALSE),
+  navset_hidden(
+    id = "main_tabs",
+    
+    nav_panel("step1",
+      ## Step 1: Select Samplesheet
+      singleTab("Step 1: Select Samplesheet",
+        # navDownload("templateDownload", "Download a Template units.tsv",
+                    # tooltipText = "Required columns: Conditions, Sample ID, ..."),
+        navUpload("sampleUpload", "Select Samplesheet", "Single"),
+        navOutputText("sampleUploadText"),
+        navOutputText("showUnitsTSV_Message"),
+        tableOutput("showUnitsTSV")
       )
     ),
-    actionButton("buildContrasts","Autogenerate contrasts from units.tsv (units.tsv shown in 'Step 1: Input Files' tab)"),
-    navOutputText("contrastsInfo1"),
-    tableOutput("contrastsTableOutput")
-   
+    nav_panel("step2",  
+      ## Step 2: Select FASTQ Folder ----
+      singleTab("Step 2: Select FASTQ Folder",
+        shinyDirButton("fastqPathSelect","Select FASTQ Input Folder",
+                   "Please select folder with FASTQs", viewtype = "icon"),
+        navOutputText("fastqDirText"),
+        navOutputText("fqFound")
+      ),
+    ),
+    nav_panel("step3",
+      ## Step 3: Select Output Folder ----
+      singleTab("Step 3: Select Output Folder",
+        shinyDirButton("outputPathSelect","Select Output Folder",
+                       "Please select a folder to run the analysis", viewtype = "icon"),
+        navOutputText("outputErrorText"),
+        navOutputText("outputErrorText2"),
+        navButton("downloadRepo", "Download Workflow"),
+        navOutputText("gitCloneMessage"),
+        navOutputText("symLinkFastq"),
+        navOutputText("wroteUnitsTSV")
+      ),
+    ),
+    nav_panel("step4",  
+      ## Step 4: Workflow Options ----
+      singleTab("Step 4: Workflow Options",
+        navSelect("refVersions", "Reference Version", "Single", "Locked", 
+                  theChoices = c("2026-02-12_15.29.54_v23","2025-12-18_22.42.45_v22")),
+        navSelect("speciesSelect","Select the Species & Annotation", "Single", "Locked",
+                  theChoices = c("human_hg38_gencode","mouse_mm10_gencode","mouse_mm39_gencode")),
+        navNumeric("fdrCutoff","False discover rate", 0.01, tooltipText = "Default: 0.01",min=0,max=1),
+        navSelect("pairedSingle","Paired-end or single-end genomics library", "Single", "Locked",
+                  theChoices = c("Paired End","Single End")),
+        navCheckbox("visBigWig","Run VisBigWig", "True"),
+        navCheckbox("rSeqC","Run rSeqC", "True"),
+        actionButton("compileConfig","Compile Config"),
+        hr(),
+      ),
+    ), 
+    nav_panel("step5",
+      ## Step 5: Select Comparisons ----
+      singleTab("Step 5: Select Comparisons",
+        fluidRow(
+          column(12,
+           p("'comparisons.tsv' is used to run differential expression contrasts in the RNAseq workflow."),
+           # p("From the column group, we have identified the following available contrasts."),
+           p("We are working to build more options. For now, contact bbc@vai.org for help building more complicated contrasts.")
+          )
+        ),
+        actionButton("buildContrasts","Build contrasts from units.tsv group column"),
+        navOutputText("contrastsInfo1"),
+        tableOutput("contrastsTableOutput"),
+        actionButton("editComparisons", "Optional: edit comparisons.tsv"),
+        verbatimTextOutput("filepath")
+       
+      ),
+    ),
+    nav_panel('step6',
+      ## Step 6: Run Workflow ----
+      singleTab("Step 6: Run Workflow",
+        actionButton("runWorkflow","Start Snakemake RNAseq Workflow"),
+        navOutputText("workflowStarted"),
+        verbatimTextOutput("job_status"),
+        navOutputText("errorFilesEmail"),
+        actionButton("checkStatus","Click here to refresh job status"),
+        verbatimTextOutput("job_status_refresh"),
+        actionButton("openResults","Open the results folder"),
+        downloadButton("downLoadFinalReport", "Download Results")
+      )
+    ),
+    nav_panel('step7',
+       ## Step 6: Run Workflow ----
+       singleTab("Check Existing Workflow",
+                 actionButton("checkStatus","Click here to refresh job status"),
+                 verbatimTextOutput("job_status_refresh"),
+                 actionButton("openResults","Open the results folder"),
+                 downloadButton("downLoadFinalReport", "Download Results")
+       )
+    )
   ),
-  singleTab("Step 4: Run Workflow",
-    actionButton("runWorkflow","Start Snakemake RNAseq Workflow"),
-    navOutputText("workflowStarted"),
-    verbatimTextOutput("job_status"),
-    navOutputText("errorFilesEmail"),
-    actionButton("checkStatus","Click here to refresh job status"),
-    verbatimTextOutput("job_status_refresh")
+  div(
+    style = "padding: 20px; text-align: center;",
+    actionButton("btn_prev", "< Previous", class = "btn-secondary"),
+    actionButton("btn_next", "Next >", class = "btn-primary")
   )
-  
-
 )
 
-
+  # ## Footer ----
+  # tags$footer(
+  #   fluidRow(
+  #     column(12,
+  #            p("contact bbc@vai.org for help."),
+  #            style = "text-align: center; padding: 15px; border-top: 1px solid #ddd; margin-top: 20px; color: #666;"
+  #     )
+  #   )
+  # )  
+  
+  
 # ___________________ ----
 # Server ----
 
 server <- function(session, input, output) {
   
-  ## 1.0 Global Vars ----
+  ## 0.1 Global Vars ----
   # Any variables here that need to carry across app sections, but should be local to the user
   # Keep all variables inside a list to help with debugging later
   globals <- reactiveValues(
     checks = list(
-      inputDirCheck = F,
-      outputDirCheck = F,
-      filesCheck = F,
+      fastqFilesFound = FALSE,
+      outputDirCheck = FALSE,
+      sampleSheetCheck = FALSE,
       gitCheck = F
     ),
     library_template = NULL,
-    library_template_path = NULL,
+    samplesheet_path = NULL,
     units = NULL,
-    repoPath = NULL
+    repoPath = NULL,
+    tab_order = NULL, # for dynamic tabs
+    current_index = 1 # for dynamic tabs
   )
   
-  
-  ## 2.0 Run on Start ----
-  # Hide pages and deactivate buttons that should not be used yet
   observe({
-    startSection("Run on Start")
-    
     # Deactivate buttons that need other things to function
     deactivateItems(
       c(
+        "fastqPathSelect",
+        "outputPathSelect",
         "compileConfig",
         "buildContrasts",
-        "checkFiles",
+        # "editComparisons",
+        "downloadRepo",
         "runWorkflow",
-        "checkStatus"
+        "checkStatus",
+        "btn_next",
+        "btn_prev"
       )
     )
-
-    # Deactivate downloads that need other things to function
-    # deactivateItems(c("workflowFiles"))
-    
-    #Unnecessary for final app, actually used elsewhere
-    # output$errorText <- renderText({ "Text here will display if sample sheet is proper" })
-    
-    endSection("Run on Start")
   })
   
+  ## 0.1.2 Modals ----
+  # --- Modal ---
+  showModal(
+    modalDialog(
+      title = "Welcome",
+      "Would you like to launch a workflow or check an existing one?",
+      footer = tagList(
+        actionButton("btn_new", "Start New", class = "btn-primary"),
+        actionButton("btn_existing", "Already Exists")
+      ),
+      easyClose = FALSE
+    )
+  )
   
-  ## 3.0 File Imports ----
+  observeEvent(input$btn_new, {
+    removeModal()
+    # rv$path <- "new"
+    globals$tab_order <- c("step1", "step2", "step3", "step4", "step5", "step6", "step7")
+    globals$current_index <- 1
+    nav_select("main_tabs", selected = globals$tab_order[1])
+    total_steps <- globals$tab_order
+    # updateProgressBar(
+    #   session = session,
+    #   id = "workflow_progress",
+    #   value = 1,          # Start at the first tab
+    #   total = total_steps
+    # )
+  })
+  
+  observeEvent(input$btn_existing, {
+    removeModal()
+    # rv$path <- "existing"
+    globals$tab_order <- c("step3", "step7")
+    globals$current_index <- 1
+    nav_select("main_tabs", selected = globals$tab_order[1])
+    total_steps <- globals$tab_order
+    # updateProgressBar(
+    #   session = session,
+    #   id = "workflow_progress",
+    #   value = 1,          # Start at the first tab
+    #   total = total_steps
+    # )
+  })
+  
+  observe({
+    n <- length(globals$tab_order)
+    i <- globals$current_index
+    
+    # Toggle visibility instead of recreating the UI
+    # toggleState("btn_prev", condition = (i > 1))
+    # toggleState("btn_next", condition = (i < n))
+  })
+  
+  observeEvent(input$btn_next, {
+    globals$current_index <- min(globals$current_index + 1, length(globals$tab_order))
+    nav_select("main_tabs", selected = globals$tab_order[globals$current_index])
+    # stop users from going to next until action taken
+    deactivateItems("btn_next")
+  })
+  
+  observeEvent(input$btn_prev, {
+    globals$current_index <- max(globals$current_index - 1, 1)
+    nav_select("main_tabs", selected = globals$tab_order[globals$current_index])
+  })
+
+  
+  
+  ## 1.0 Import Samplesheet ----
   observeEvent(input$sampleUpload, {
     req(input$sampleUpload)
     
     file <- input$sampleUpload
-    globals$library_template_path <- file$name
+    globals$samplesheet_path <- file$name
+
     # Check file extension
     ext <- tools::file_ext(file$name)
-    if (tolower(ext) != "csv") {
+    df <- NULL
+    if (tolower(ext) == "csv") {
+      # Read CSV into data.frame and save it as a global variable
+      df <- tryCatch({
+        read.csv(file$datapath, stringsAsFactors = FALSE)
+      }, error = function(e) {
+        shinyalert::shinyalert(
+          title = "Genomics Library Template File Read Error",
+          text  = paste("Could not read the Genomics Library Template:", e$message),
+          type  = "error"
+        )
+        return(NULL)
+      })
+    }else if (tolower(ext) == "tsv") {
+      # Read TSV into data.frame and save it as a global variable
+      df <- tryCatch({
+        read.delim(file$datapath, sep = "\t", stringsAsFactors = FALSE)
+        
+      }, error = function(e) {
+        shinyalert::shinyalert(
+          title = "File Read Error",
+          text  = paste("Could not read",file$name,"\n\n", e$message),
+          type  = "error"
+        )
+        return(NULL)
+      })
+    }else{
       shinyalert::shinyalert(
-        title = "Invalid File Type",
-        text  = "Please upload a valid Genomics Library Template comma-separated values (.csv) file.",
+        title = "File Read Error",
+        text  = paste("Will not read in file with extension",ext,"\n\n",file$name),
         type  = "error"
+      )
+    }
+    
+    req(df)
+    
+    build_units_TSV_output <- NULL
+    # ==  Create the repoPath/config/samplesheet/units.tsv file
+    tryCatch({
+      message('inputFile=',file$name)
+      message('df=',class(df))
+      build_units_TSV_output <- build_units_TSV(
+        inputFile = file$name,
+        df = df
+      )
+      globals$checks$sampleSheetCheck <- TRUE
+      globals$units <- build_units_TSV_output[['units']]
+      
+      shinyalert(
+        title = "Samplesheet Uploaded!",
+        text  = paste("Go to next\n\n","Please contact bbc@vai.org with questions"),
+        type  = "success"
+      )
+    }, error = function(e) {
+      showNotification(e$message, type = "error")
+      shinyalert(
+        title = "Problem with the samplesheet!",
+        text  = paste(e$message,"\n\n","Please contact bbc@vai.org with questions"),
+        type  = "error"
+      )
+      globals$checks$sampleSheetCheck <- FALSE
+    })
+    
+    # messaging
+    output$sampleUploadText <- renderText({ paste('Samplesheet Loaded:',file$name,"\n") })
+    output$showUnitsTSV_Message <- renderText({ "units.tsv to be created for workflow:" })
+    output$showUnitsTSV <- renderTable({ build_units_TSV_output[['units']] })
+    
+    if(globals$checks$sampleSheetCheck){
+      activateItems(c('fastqPathSelect','btn_next'))
+    }
+  })
+  
+  ## 2.0 Select FASTQ Folder ----
+  shinyDirChoose(input, "fastqPathSelect", roots = rootDir, session = session, filetypes = character(0),
+                 allowDirCreate = FALSE, hidden = FALSE, restrictions = restrictDir)
+  
+  observeEvent(input$fastqPathSelect,{
+    fastqDir <- parseDirPath(rootDir,input$fastqPathSelect)
+    
+    req(parseDirPath(rootDir, input$fastqPathSelect) != "") # this stops code being run until a dir is selected
+    
+    # Check if selected directory is readable
+    # Returns TRUE if readable, FALSE otherwise
+    is_readable <- file.access(fastqDir, mode = 4) == 0
+    warning("is_readable: ",is_readable)
+    if(is_readable == TRUE){
+      output$fastqDirText <- renderText({ paste0("The selected input directory is: ",fastqDir) })
+    }else{
+      shinyalert(
+        title = "Selected FASTQ Directory Not Readable",
+        text = paste("The selected directory is not readable:\n\n", fastqDir,
+                     "\n\nPlease select a different directory with read permissions."),
+        type = "error"
       )
       return()
     }
     
-    # Read CSV into data.frame and save it as a global variable
-    df <- tryCatch({
-      read.csv(file$datapath, stringsAsFactors = FALSE)
-    }, error = function(e) {
-      shinyalert::shinyalert(
-        title = "Genomics Library Template File Read Error",
-        text  = paste("Could not read the Genomics Library Template:", e$message),
-        type  = "error"
-      )
-      return(NULL)
-    })
-    req(df)
-    globals$library_template <- df
+    # check that FASTQs exist in fastqDir
+    check_FASTQs_result <- check_FASTQs(
+      units = globals$units,
+      fastqDir = fastqDir
+    )
     
-    
-  })
-  
-  ## 4.0 Select Folders ----
-  # Input FASTQ folder
-  shinyDirChoose(input, "inputPathSelect", roots = rootDir, session = session, filetypes = character(0),
-                 allowDirCreate = FALSE, hidden = FALSE, restrictions = restrictDir)
-  
-  observeEvent(input$inputPathSelect,{
-    inputDir <- parseDirPath(rootDir,input$inputPathSelect)
-    
-    req(parseDirPath(rootDir, input$inputPathSelect) != "") # this stops code being run until a dir is selected
-    
-    # Check if selected directory is readable
-    # Returns TRUE if readable, FALSE otherwise
-    is_readable <- file.access(inputDir, mode = 4) == 0
-    warning("is_readable: ",is_readable)
-    if(is_readable == TRUE){
-      output$inputErrorText <- renderText({ paste0("The selected input directory is: ",inputDir) })
-      globals$checks$inputDirCheck <- TRUE
-    }else{
+    if(check_FASTQs_result[['all_fq1_found']]==FALSE){
       shinyalert(
-        title = "Selected FASTQ Directory Not Readable",
-        text = paste("The selected directory is not readable:\n\n", inputDir,
-                     "\n\nPlease select a different directory with read permissions."),
-        type = "error"
+        title = "fq1 files missing!",
+        text  = paste0("Not all read 1 FASTQs from fq1 column of units.tsv (Step 1) were found in ",fastqDir,"."),
+        type  = "warning"
+      )
+      globals$checks$fastqFilesFound <- FALSE
+    }else if(check_FASTQs_result[['all_fq2_found']]==FALSE){
+      shinyalert(
+        title = "fq2 files missing!",
+        text  = paste0("Not all read 2 FASTQs from fq2 column of units.tsv (Step 1) were found in ",fastqDir,"."),
+        type  = "warning"
+      )
+      globals$checks$fastqFilesFound <- FALSE
+    }else{
+      globals$checks$fastqFilesFound <- TRUE
+      # get # of files
+      n <- nrow(globals$units)
+      output$fqFound <- renderText({ paste0("Found all ",n," expected FASTQs in ",fastqDir," from column 'fq1' and 'fq2' of ",globals$samplesheet_path) })
+      shinyalert(
+        title = "FASTQ Files OK!",
+        text  = paste0("Go to next"),
+        type  = "success"
       )
     }
     
     # Check if 'Check Files and Folders' runnable
-    if (globals$checks$inputDirCheck & globals$checks$outputDirCheck){
-      activateItems(c("checkFiles"))
+    if (globals$checks$fastqFilesFound){
+      activateItems(c("outputPathSelect","btn_next"))
     }
   })
   
-  # Output folder
+  ## 3.1 Select Output Folder ----
   shinyDirChoose(input, "outputPathSelect", roots = rootDir, session = session, filetypes = character(0),
                  allowDirCreate = TRUE)
   observeEvent(input$outputPathSelect,{
     outputDir <- parseDirPath(rootDir,input$outputPathSelect)
     
-    # Check if selected directory if writable
     req(parseDirPath(rootDir, input$outputPathSelect) != "") # this stops code being run until a dir is selected
-    
-    
-    # Check if rnaseq_workflow github repo already exists
-    repo.url <- "https://github.com/vari-bbc/rnaseq_workflow.git"
-    repoName <- gsub(pattern = '.git$',replacement = '',x = basename(repo.url))
-    repoPath <- file.path(outputDir, repoName)
-    # if (dir.exists(repoPath) && length(list.files(repoPath)) > 0) {
-    #   shinyalert(
-    #     title = "'rnaseq_workflow' repository already exists in selected workflow output folder",
-    #     text  = paste0("'", repoPath, "' already exists and is not empty. Please choose a different output folder or remove the existing 'rnaseq_workflow' directory from ",outputDir,"."),
-    #     type  = "error"
-    #   )
-    #   return()
-    # }
-    
     
     # Check if selected directory is writable
     # Returns TRUE if writable, FALSE otherwise
@@ -268,24 +444,42 @@ server <- function(session, input, output) {
       )
     }
     
-    if (globals$checks$inputDirCheck & globals$checks$outputDirCheck){
-      activateItems(c("checkFiles"))
+    ### 
+    # Check if rnaseq_workflow github repo already exists
+    repo.url <- "https://github.com/vari-bbc/rnaseq_workflow.git"
+    repoName <- gsub(pattern = '.git$',replacement = '',x = basename(repo.url))
+    repoPath <- file.path(outputDir, repoName)
+    if (dir.exists(repoPath) && length(list.files(repoPath)) > 0) {
+      shinyalert(
+        title = "An 'rnaseq_workflow' repository already exists in the selected workflow output folder",
+        text  = paste0("'", repoPath, "' already exists and is not empty. Please choose a different output folder or remove the existing 'rnaseq_workflow' directory from ",outputDir,"."),
+        type  = "warning"
+      )
+      globals$checks$outputDirCheck <- FALSE # disable if already exists
+      return()
+    }
+    
+    
+    if (globals$checks$fastqFilesFound & globals$checks$outputDirCheck){
+      activateItems(c("downloadRepo"))
+      output$outputErrorText2 <- renderText({ 'You can now download the workflow!' })
+      deactivateItems(c("sampleUpload","fastqPathSelect","outputPathSelect"))
     }
   })
   
-  ## 5.0 Check Samplesheet, FASTQs, output dir ----
-  ### Create units.tsv 
-  observeEvent(input$checkFiles, {
-    startSection("Check files")
+  ## 3.2 download repo, ln -s .fq, write units.tsv ----
+  observeEvent(input$downloadRepo, {
+    startSection("Download github repo")
     
     # == Inputs
-    inputDir <- parseDirPath(rootDir,input$inputPathSelect)
+    fastqDir <- parseDirPath(rootDir,input$fastqPathSelect)
     outputDir <- parseDirPath(rootDir,input$outputPathSelect)
       
     # ==  Clone github folder to outputDir ==
     repo.url <- "https://github.com/vari-bbc/rnaseq_workflow.git"
     repoName <- gsub(pattern = '.git$',replacement = '',x = basename(repo.url))
     repoPath <- file.path(outputDir, repoName)
+    message('repoPath:',repoPath)
     globals$repoPath <- repoPath
     tryCatch({
       message('Downloading BBC rnaseq_workflow ', repo.url, " into ", repoPath)
@@ -302,8 +496,6 @@ server <- function(session, input, output) {
       script <- gsub("cd \\$SLURM_SUBMIT_DIR", paste("cd", repoPath), script)
       writeLines(script, file.path(repoPath,"bin/run_snake_APP.sh"))
       
-      
-      
       output$gitCloneMessage <- renderText({ paste("Cloned", repoName, "into", repoPath) })
       globals$checks$gitCheck <- TRUE
     }, error = function(e) {
@@ -316,76 +508,28 @@ server <- function(session, input, output) {
       globals$checks$gitCheck <- FALSE
     })
     
-    
-    # == Link the inputDir FASTQs to repoPath/raw_data ==
+    # == Link the fastqDir FASTQs to repoPath/raw_data ==
     system2("ln", args = c(
       "-s",
-      file.path(inputDir, list.files(inputDir, pattern = "\\.fastq\\.gz$")),
+      file.path(fastqDir, list.files(fastqDir, pattern = "\\.fastq\\.gz$|\\.fq\\.gz$")),
       file.path(repoPath,'raw_data')
     ))
-    output$symLinkFastq <- renderText({ paste0("FASTQ files linked from ",inputDir,"/*.fastq.gz into ",repoPath,"/raw_data/") })
+    output$symLinkFastq <- renderText({ paste0("FASTQ files linked from ",fastqDir," into ",repoPath,"/raw_data/") })
+    
+    # write units.tsv
+    readr::write_delim(globals$units,file=file.path(repoPath,'config/samplesheet/units.tsv'),
+    delim="\t",quote="none")
+    output$wroteUnitsTSV <- renderText({ "units.tsv saved" })
     
     
-    build_units_TSV_output <- NULL
-    # ==  Create the repoPath/config/samplesheet/units.tsv file
-    tryCatch({
-      build_units_TSV_output <- build_units_TSV(
-        inputFile = globals$library_template_path,
-        genomics_lib_template = globals$library_template,
-        repoName = repoPath
-      )
-      globals$checks$filesCheck <- TRUE
-      
-      # message("value of build_units_TSV_output[['all_fq1_found']]:",build_units_TSV_output[['all_fq1_found']])
-      # message("value of build_units_TSV_output[['all_fq2_found']]:",build_units_TSV_output[['all_fq2_found']])
-      # === warnings if fq1 or fq2 files not found
-      if(build_units_TSV_output[['all_fq1_found']]==FALSE){
-        shinyalert(
-          title = "fq1 files missing!",
-          text  = paste0("Not all read 1 FASTQs from fq1 column of ",repoPath,"/config/samplesheet/units.tsv were found in ",inputDir,"."),
-          type  = "warning"
-        )
-        globals$checks$filesCheck <- FALSE
-      }
-      if(build_units_TSV_output[['all_fq2_found']]==FALSE){
-        shinyalert(
-          title = "fq2 files missing!",
-          text  = paste0("Not all read 2 FASTQs from fq2 column of ",repoPath,"/config/samplesheet/units.tsv were found in ",inputDir,"."),
-          type  = "warning"
-        )
-        globals$checks$filesCheck <- FALSE
-      }
-      # get # of files
-      n <- nrow(build_units_TSV_output[['units']])
-      output$fqFound <- renderText({ paste0("Found ",n," FASTQs (*.fastq.gz) in ",repoPath,"/raw_data/ matching ",globals$library_template_path) })
-    }, error = function(e) {
-      showNotification(e$message, type = "error")
-        shinyalert(
-              title = "Problem with the samplesheet!",
-              text  = paste(e$message,"\n\n","Please contact bbc@vai.org with questions"),
-              type  = "error"
-        )
-        globals$checks$filesCheck <- FALSE
-    })
-    
-    globals$units <- build_units_TSV_output[['units']]
-    # table(units$group)
-    # output$showUnitsPreludeText <- renderText({ paste0("Built ") })
-    output$builtUnitsTsv <- renderText({ paste0("Saved the following samplesheet into ",repoPath,"/config/samplesheet/units.tsv") })
-    output$showUnitsTSV <- renderTable({ build_units_TSV_output[['units']] })
-  
-    
-    # == activate compileConfig ==
-    # == message proceed to options tab ==
-    # ?? should all be TRUE to get to here anyway ... remove if() statement?
-    if (globals$checks$inputDirCheck & globals$checks$outputDirCheck & globals$checks$filesCheck & globals$checks$gitCheck){
-      activateItems(c("compileConfig"))
-      
+    if (globals$checks$gitCheck){
       shinyalert::shinyalert(
         title = "Success!",
-        text  = "Proceed to 'Step 2: Options' tab\n\nPlease contact bbc@vai.org for help.",
+        text  = "Go to next\n\nPlease contact bbc@vai.org for help.",
         type  = "success"
       )
+      activateItems(c("compileConfig",'btn_next'))
+      deactivateItems(c("downloadRepo"))
     }else{
       shinyalert::shinyalert(
         title = "Failure!",
@@ -398,7 +542,7 @@ server <- function(session, input, output) {
   })
   
   
-  ## 6.0 Create Config.yaml ----
+  ## 4.0 Create Config.yaml ----
   observeEvent(input$compileConfig, {
     startSection("Start create config files")
     
@@ -427,17 +571,17 @@ server <- function(session, input, output) {
     
     shinyalert::shinyalert(
       title = "Success!",
-      text  = paste0("Proceed to 'Step 3: Select Comparisons' tab'\n\nPlease contact bbc@vai.org for help."),
+      text  = paste0("Go to next\n\nPlease contact bbc@vai.org for help."),
       type  = "success"
     )
       
-    activateItems(c("buildContrasts"))
+    activateItems(c("buildContrasts",'btn_next'))
     
     endSection("End create config files")
   })
   
   
-  ## 7.0 Create comparisons.tsv ----
+  ## 5.1 Select Comparisons ----
   observeEvent(input$buildContrasts, {
     repoPath <- globals$repoPath
     # pass 2 build_comparisons_TSV.R
@@ -451,16 +595,27 @@ server <- function(session, input, output) {
     output$contrastsTableOutput <- renderTable({ comparisons })
     
     # activate run analysis button -- all steps done
-    activateItems(c("runWorkflow"))
+    activateItems(c("runWorkflow","editComparisons",'btn_next'))
     
     shinyalert::shinyalert(
       title = "Success!",
-      text  = "Proceed to 'Step 4: Run Workflow' tab\n\nPlease contact bbc@vai.org for help.",
+      text  = "Go to next\n\nPlease contact bbc@vai.org for help.",
       type  = "success"
     )
+    
+    dir <- file.path(repoPath,'config/samplesheet/comparisons.tsv')
+    
+    
+    
   })
-
-  ## 8.0 Run Snakemake Workflow ----
+  
+  # 5.2 Edit Comparisons ----
+  observeEvent(input$editComparisons, {
+    runjs("window.open('https://ondemand1.vai.zone/pun/sys/dashboard/files/edit/fs/varidata/research/projects/bbc/ian/comparisons.tsv', '_blank');")  
+  })
+  
+  
+  ## 6.1 Run Snakemake Workflow ----
   observeEvent(input$runWorkflow, {
     repoPath <- globals$repoPath
     email <- paste0(Sys.getenv("USER"),'@vai.org')
@@ -492,8 +647,8 @@ server <- function(session, input, output) {
       activateItems("checkStatus")
       
       shinyalert(
-        title = "Success!",
-        text  = paste("You can now close this app.\n\n","Please contact bbc@vai.org with questions"),
+        title = "Workflow Launched!",
+        text  = paste("\n\n","Please contact bbc@vai.org with questions"),
         type  = "info"
       )
       
@@ -507,6 +662,7 @@ server <- function(session, input, output) {
     })
   })
   
+  ## 6.2 Check Job Status ----
   observeEvent(input$checkStatus, {
     # Poll status
     output$job_status_refresh <- renderText({
@@ -514,6 +670,25 @@ server <- function(session, input, output) {
       paste(squeue_output, collapse = "\n")
     })
   })
+  
+  ## 6.3 Open Results Folder ----
+  observeEvent(input$openResults, {
+    runjs("window.open('https://ondemand1.vai.zone/pun/sys/dashboard/files/fs/varidata/researchtemp/hpctmp/ian.beddows/rnaseq_workflow/results', '_blank');")  
+  })
+ 
+  ## 6.2 Download Final Report ----
+  output$downLoadFinalReport <- downloadHandler(
+    filename = function() {
+      "BBC_RNAseq_Report.zip"
+    },
+    content = function(file) {
+      zip(
+        zipfile = file,
+        files = "/varidata/researchtemp/hpctmp/ian.beddows/rnaseq_workflow/results/make_final_report/BBC_RNAseq_Report",
+        flags = "-r"   # recursive
+      )
+    }
+  )
 }
 
 
