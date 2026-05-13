@@ -22,38 +22,45 @@ Click "Connect to shiny app"
 
 a units.tsv has 4 essential columns named exactly:
 
-sample
-group
-fq1
-fq2
+ - sample
+ - group
+ - fq1
+ - fq2
 
-Columns fq1 and fq2 are filepaths to each sample's read [12] FASTQ files.
-Group values can be set as e.g. genotype, treatment, condition
-Additional columns can also be included such as batch, condition
+Columns fq1 and fq2 are the names of each sample's read 1 and read 2 FASTQ files.
+The group column can represent any group of interest (e.g. genotype, treatment, tissue). 
+> 💡 **Critical!** The group column is used in step 5 to build differential expression contrasts
+Additional columns by any name can also be included. 
+See https://github.com/vari-bbc/rnaseq_workflow for full details.
 
-#### Example units.tsv
+#### Example samplesheet: units.tsv
 | sample          | group        | fq1  | fq2       | patient   |
 |---------------|-------------|-------------|----------------|----------|
-| o1 | ovary    | /filepath/to/o1_R1.fastq.gz     | /filepath/to/o1_R2.fastq.gz       | a   |
-| o2     | ovary    | /filepath/to/o2_R1.fastq.gz     | /filepath/to/o2_R2.fastq.gz  | b   |
-| e1   | endometrium     | /filepath/to/e1_R1.fastq.gz  | /filepath/to/e1_R2.fastq.gz         | a |
-| e2     | endometrium     | /filepath/to/e2_R1.fastq.gz     | /filepath/to/e2_R2.fastq.gz          | b   |
-| b1   | blood     | /filepath/to/b1_R1.fastq.gz  | /filepath/to/b1_R2.fastq.gz         | a |
-| b2     | blood     | /filepath/to/b2_R1.fastq.gz     | /filepath/to/b2_R2.fastq.gz          | b   |
+| o1 | ovary    | o1_R1.fastq.gz     | o1_R2.fastq.gz       | a   |
+| o2     | ovary    | o2_R1.fastq.gz     | o2_R2.fastq.gz  | b   |
+| e1   | endometrium     | e1_R1.fastq.gz  | e1_R2.fastq.gz         | a |
+| e2     | endometrium     | e2_R1.fastq.gz     | e2_R2.fastq.gz          | b   |
+| b1   | blood     | b1_R1.fastq.gz  | b1_R2.fastq.gz         | a |
+| b2     | blood     | b2_R1.fastq.gz     | b2_R2.fastq.gz          | b   |
 
-Step 1.2 Select FASTQ Input Folder (e.g. 'HPC Primary' -> genomicscore -> XXXX.Lab -> PRXXXXXX_NNNN).
+### Step 2 Select FASTQ Folder
 
-Step 1.3 Select Workflow Output Folder. 
+You must now select a folder containing the fq1 and fq2 files in the samplesheet.
 
-Step 1.4 Click 'Validate Samplesheet, FASTQs, Output Folder' -- Follow any messages
+### Step 3 Select Output Folder
 
-### Step 2. Options
+ - Select an output folder where the RNAseq workflow will be run.
+ - Once selected, click 'Download Workflow' to initiate.
 
-Change configuration options as needed. Click 'Compile Config'
+### Step 4 Workflow Options
+
+Click 'Compile Config' following selection of configuration options.
+
+> 💡 **Tip:** Select the correct species!
 
 ### Step 3. Select Comparisons 
 
-Click 'Autogenerate contrasts from units.tsv'
+Click 'Build contrasts from units.tsv group column'.
 
 ### Step 4. Run Workflow
 
