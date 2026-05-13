@@ -28,9 +28,13 @@ a units.tsv has 4 essential columns named exactly:
  - fq2
 
 Columns fq1 and fq2 are the names of each sample's read 1 and read 2 FASTQ files.
+
 The group column can represent any group of interest (e.g. genotype, treatment, tissue). 
+
 > 💡 **Critical!** The group column is used in step 5 to build differential expression contrasts
+
 Additional columns by any name can also be included. 
+
 See https://github.com/vari-bbc/rnaseq_workflow for full details.
 
 #### Example samplesheet: units.tsv
