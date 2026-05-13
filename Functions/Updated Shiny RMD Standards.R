@@ -209,10 +209,10 @@ navText <- function(inputID, inputLabel, tooltipText = NA){
   textInput(width = "100%",inputID,labelText)
 }
 
-navNumeric <- function(inputID, inputLabel, theValue = 1, tooltipText = NA){
+navNumeric <- function(inputID, inputLabel, theValue = 1, min=0, max=1, tooltipText = NA){
   labelText <- addTooltip(inputLabel, tooltipText)
   
-  numericInput(width = "100%",inputID,labelText, value = theValue)
+  numericInput(width = "100%",inputID,labelText, value = theValue, min = min, max = max)
 }
 
 navColor <- function(inputID, inputLabel, colorValue = "white", tooltipText = NA){
