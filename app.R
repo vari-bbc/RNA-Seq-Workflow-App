@@ -107,12 +107,17 @@ ui <- UINav(
         downloadButton("downLoadFinalReport", "Download Results")
       )
     ),
-    nav_panel('step7',card( height = cardHeight,
-         actionButton("checkStatus","Click here to refresh job status"),
+    nav_panel("stepb1",card( height = cardHeight,
+        shinyDirButton("selectExistingWorkflow","Select Existing 'rnaseq_workflow' Folder",
+                       "Select Existing 'rnaseq_workflow' Folder", viewtype = "icon"),
+      )
+    ),
+    nav_panel('stepb2',card( height = cardHeight,
+         actionButton("checkStatus_b2","Click here to refresh job status"),
          verbatimTextOutput("job_status_refresh"),
-         actionButton("openResults","Open the results folder"),
-         downloadButton("downLoadFinalReport", "Download Results")
-       )
+         actionButton("openResults_b2","Open the results folder"),
+         downloadButton("downLoadFinalReport_b2", "Download Results")
+      )
     )
   ),
   div(
@@ -205,7 +210,7 @@ server <- function(session, input, output) {
   observeEvent(input$btn_existing, {
     removeModal()
     # rv$path <- "existing"
-    globals$tab_order <- c("step3", "step7")
+    globals$tab_order <- c("stepb1", "stepb2")
     globals$current_index <- 1
     nav_select("main_tabs", selected = globals$tab_order[1])
     total_steps <- length(globals$tab_order)
