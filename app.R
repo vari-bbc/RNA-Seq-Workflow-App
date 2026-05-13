@@ -21,6 +21,7 @@ sourceFunctions(functionFolderPath)
 ## 3.0 Universal Vars ----fr
 # App Name here:
 appName <<- "RNA Seq Workflow Starter"
+cardHeight <<- '65vh'
 # Necessary Files here:
 template <<- read_excel(paste0("Necessary Files/SampleTemplate.xlsx"), sheet = 1)
 # Root Dir for Folder Selection:
@@ -37,33 +38,25 @@ restrictDir <<- c("afs","bin","cloudstorage","cm","dev","etc","legacy","lib",
 ui <- UINav(
   useShinyjs(),
   uiOutput("tab_buttons"), 
-  # progressBar(id = "workflow_progress", value = 1, total = 6, display_pct = FALSE),
+  progressBar(id = "workflow_progress", value = 1, total = 1, display_pct = FALSE),
   navset_hidden(
     id = "main_tabs",
     
-    nav_panel("step1",
-      ## Step 1: Select Samplesheet
-      singleTab("Step 1: Select Samplesheet",
-        # navDownload("templateDownload", "Download a Template units.tsv",
-                    # tooltipText = "Required columns: Conditions, Sample ID, ..."),
-        navUpload("sampleUpload", "Select Samplesheet", "Single"),
+    nav_panel("step1",card( height = cardHeight,
+       navUpload("sampleUpload", "Select Samplesheet", "Single"),
         navOutputText("sampleUploadText"),
         navOutputText("showUnitsTSV_Message"),
         tableOutput("showUnitsTSV")
       )
     ),
-    nav_panel("step2",  
-      ## Step 2: Select FASTQ Folder ----
-      singleTab("Step 2: Select FASTQ Folder",
+    nav_panel("step2",card( height = cardHeight,
         shinyDirButton("fastqPathSelect","Select FASTQ Input Folder",
                    "Please select folder with FASTQs", viewtype = "icon"),
         navOutputText("fastqDirText"),
         navOutputText("fqFound")
       ),
     ),
-    nav_panel("step3",
-      ## Step 3: Select Output Folder ----
-      singleTab("Step 3: Select Output Folder",
+    nav_panel("step3",card( height = cardHeight,
         shinyDirButton("outputPathSelect","Select Output Folder",
                        "Please select a folder to run the analysis", viewtype = "icon"),
         navOutputText("outputErrorText"),
@@ -74,9 +67,7 @@ ui <- UINav(
         navOutputText("wroteUnitsTSV")
       ),
     ),
-    nav_panel("step4",  
-      ## Step 4: Workflow Options ----
-      singleTab("Step 4: Workflow Options",
+    nav_panel("step4",card( height = cardHeight,
         navSelect("refVersions", "Reference Version", "Single", "Locked", 
                   theChoices = c("2026-02-12_15.29.54_v23","2025-12-18_22.42.45_v22")),
         navSelect("speciesSelect","Select the Species & Annotation", "Single", "Locked",
@@ -90,9 +81,7 @@ ui <- UINav(
         hr(),
       ),
     ), 
-    nav_panel("step5",
-      ## Step 5: Select Comparisons ----
-      singleTab("Step 5: Select Comparisons",
+    nav_panel("step5",card( height = cardHeight,
         fluidRow(
           column(12,
            p("'comparisons.tsv' is used to run differential expression contrasts in the RNAseq workflow."),
@@ -105,12 +94,9 @@ ui <- UINav(
         tableOutput("contrastsTableOutput"),
         actionButton("editComparisons", "Optional: edit comparisons.tsv"),
         verbatimTextOutput("filepath")
-       
       ),
     ),
-    nav_panel('step6',
-      ## Step 6: Run Workflow ----
-      singleTab("Step 6: Run Workflow",
+    nav_panel('step6',card( height = cardHeight,
         actionButton("runWorkflow","Start Snakemake RNAseq Workflow"),
         navOutputText("workflowStarted"),
         verbatimTextOutput("job_status"),
@@ -121,32 +107,33 @@ ui <- UINav(
         downloadButton("downLoadFinalReport", "Download Results")
       )
     ),
-    nav_panel('step7',
-       ## Step 6: Run Workflow ----
-       singleTab("Check Existing Workflow",
-                 actionButton("checkStatus","Click here to refresh job status"),
-                 verbatimTextOutput("job_status_refresh"),
-                 actionButton("openResults","Open the results folder"),
-                 downloadButton("downLoadFinalReport", "Download Results")
-       )
+    nav_panel("stepb1",card( height = cardHeight,
+        shinyDirButton("selectExistingWorkflow","Select Existing 'rnaseq_workflow' Folder",
+                       "Select Existing 'rnaseq_workflow' Folder", viewtype = "icon"),
+      )
+    ),
+    nav_panel('stepb2',card( height = cardHeight,
+         actionButton("checkStatus_b2","Click here to refresh job status"),
+         verbatimTextOutput("job_status_refresh"),
+         actionButton("openResults_b2","Open the results folder"),
+         downloadButton("downLoadFinalReport_b2", "Download Results")
+      )
     )
   ),
   div(
-    style = "padding: 20px; text-align: center;",
+    style = "padding: 0px 10px; text-align: center;",
     actionButton("btn_prev", "< Previous", class = "btn-secondary"),
     actionButton("btn_next", "Next >", class = "btn-primary")
+  ),
+  tags$footer(
+    fluidRow(
+      column(12,
+             p("contact bbc@vai.org for help."),
+             style = "text-align: center; padding: 15px; border-top: 1px solid #ddd; margin-top: 20px; color: #666;"
+      )
+    )
   )
 )
-
-  # ## Footer ----
-  # tags$footer(
-  #   fluidRow(
-  #     column(12,
-  #            p("contact bbc@vai.org for help."),
-  #            style = "text-align: center; padding: 15px; border-top: 1px solid #ddd; margin-top: 20px; color: #666;"
-  #     )
-  #   )
-  # )  
   
   
 # ___________________ ----
@@ -176,16 +163,16 @@ server <- function(session, input, output) {
     # Deactivate buttons that need other things to function
     deactivateItems(
       c(
-        "fastqPathSelect",
-        "outputPathSelect",
-        "compileConfig",
-        "buildContrasts",
+        # "fastqPathSelect",
+        # "outputPathSelect",
+        # "compileConfig",
+        # "buildContrasts",
         # "editComparisons",
-        "downloadRepo",
-        "runWorkflow",
-        "checkStatus",
-        "btn_next",
-        "btn_prev"
+        # "downloadRepo",
+        # "runWorkflow",
+        # "checkStatus",
+        # "btn_next",
+        # "btn_prev"
       )
     )
   })
@@ -210,28 +197,30 @@ server <- function(session, input, output) {
     globals$tab_order <- c("step1", "step2", "step3", "step4", "step5", "step6", "step7")
     globals$current_index <- 1
     nav_select("main_tabs", selected = globals$tab_order[1])
-    total_steps <- globals$tab_order
-    # updateProgressBar(
-    #   session = session,
-    #   id = "workflow_progress",
-    #   value = 1,          # Start at the first tab
-    #   total = total_steps
-    # )
+    total_steps <- length(globals$tab_order)
+    updateProgressBar(
+      session = session,
+      id = "workflow_progress",
+      value = 1,          # Start at the first tab
+      total = total_steps,
+      range_value = c(1,total_steps)
+    )
   })
   
   observeEvent(input$btn_existing, {
     removeModal()
     # rv$path <- "existing"
-    globals$tab_order <- c("step3", "step7")
+    globals$tab_order <- c("stepb1", "stepb2")
     globals$current_index <- 1
     nav_select("main_tabs", selected = globals$tab_order[1])
-    total_steps <- globals$tab_order
-    # updateProgressBar(
-    #   session = session,
-    #   id = "workflow_progress",
-    #   value = 1,          # Start at the first tab
-    #   total = total_steps
-    # )
+    total_steps <- length(globals$tab_order)
+    updateProgressBar(
+      session = session,
+      id = "workflow_progress",
+      value = 1,          # Start at the first tab
+      total = total_steps,
+      range_value = c(1,total_steps)
+    )
   })
   
   observe({
@@ -245,14 +234,32 @@ server <- function(session, input, output) {
   
   observeEvent(input$btn_next, {
     globals$current_index <- min(globals$current_index + 1, length(globals$tab_order))
+    message('globals$current_index',globals$current_index)
     nav_select("main_tabs", selected = globals$tab_order[globals$current_index])
     # stop users from going to next until action taken
-    deactivateItems("btn_next")
+    updateProgressBar(
+      session = session,
+      id = "workflow_progress",
+      value = globals$current_index,
+      total = length(globals$tab_order),
+      range_value = c(1,length(globals$tab_order))
+    )
+    # deactivateItems("btn_next")
   })
   
   observeEvent(input$btn_prev, {
     globals$current_index <- max(globals$current_index - 1, 1)
+    message('globals$current_index',globals$current_index)
     nav_select("main_tabs", selected = globals$tab_order[globals$current_index])
+    
+    updateProgressBar(
+      session = session,
+      id = "workflow_progress",
+      value = globals$current_index,
+      total = length(globals$tab_order),
+      range_value = c(1,length(globals$tab_order))
+    )
+    
   })
 
   
