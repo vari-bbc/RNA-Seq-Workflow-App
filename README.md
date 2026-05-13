@@ -62,11 +62,11 @@ Click 'Compile Config' following selection of configuration options.
 
 > 💡 **Tip:** Select the correct species!
 
-### Step 3. Select Comparisons 
+### Step 5. Select Comparisons 
 
 Click 'Build contrasts from units.tsv group column'.
 
-### Step 4. Run Workflow
+### Step 6. Run Workflow
 
 Click 'Start Snakemake RNAseq Workflow'
 
