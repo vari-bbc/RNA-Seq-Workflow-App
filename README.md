@@ -66,6 +66,9 @@ Click 'Compile Config' following selection of configuration options.
 
 Click 'Build contrasts from units.tsv group column'.
 
+Not recommended: directly edit comparisons
+> ⚠️ **Warning:** For help with this step, contact [bioinfo@vai.org](mailto:bioinfo@vai.org)
+
 ### Step 6. Run Workflow
 
 Click 'Start Snakemake RNAseq Workflow'
