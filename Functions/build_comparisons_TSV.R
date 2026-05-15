@@ -15,6 +15,9 @@ build_comparisons_TSV <- function(
     units = NULL,
     repoPath = NULL
 ) {
+  message('Class of units:',class(units))
+  message('colnames of units:',paste(colnames(units),collapse="\n"))
+  message(paste(capture.output(print(units)), collapse="\n"))  
   
   columns.in <- c(
     'genotype',
@@ -27,17 +30,18 @@ build_comparisons_TSV <- function(
   )
   ci <- which(colnames(units) %in% columns.in)
   i <- length(ci)
-
-    
+  message('value of ci :',ci)
+  message('value of i: ',i)
+  
   if (i<1) stop(paste("This error should not be possible -- yet here we are #45fndvo34qtuqgvv"))
   
   # validate which of the columns.in have more than two levels
   j <- unlist(lapply(ci,FUN=function(x){
-    length(unique(units[,ci]))
+    length(unique(units[,x]))
   }))
   if (!any(j>1)) stop(paste("This error should not be possible -- yet here we are #vndklartja4tgohnvbw"))
   
-  message('Value of i:',i)
+  message('Value of i: ',i)
   
   comparisons <- lapply(columns.in, function(col) {
     warning(paste("on Column", col))
@@ -58,6 +62,8 @@ build_comparisons_TSV <- function(
     bind_rows()
   
   message('write_delim comparisons')
+  message(paste(capture.output(print(comparisons)), collapse="\n"))  
+  
   readr::write_delim(comparisons,file=file.path(repoPath,'config/samplesheet/comparisons.tsv'),
               delim="\t",quote="none")
   

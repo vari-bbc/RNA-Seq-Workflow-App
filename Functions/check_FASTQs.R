@@ -40,7 +40,7 @@ check_FASTQs <- function(
       list(
         'all_fq1_found' = all_fq1_found,
         'all_fq2_found' = all_fq2_found,
-        'units' = units
+        'units' = as.data.frame(units)
       )
     )
   }else{
@@ -96,7 +96,7 @@ check_FASTQs <- function(
       list(
         'all_fq1_found' = all_fq1_found,
         'all_fq2_found' = all_fq2_found,
-        'units' = units
+        'units' = as.data.frame(units)
       )
     )
   }

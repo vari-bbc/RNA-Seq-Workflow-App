@@ -117,7 +117,7 @@ ui <- UINav(
     ),
     nav_panel('stepb2',card( height = cardHeight,
          actionButton("checkStatus_b2","Click here to refresh job status"),
-         verbatimTextOutput("job_status_refresh"),
+         verbatimTextOutput("job_status_refresh_b2"),
          actionButton("openResults_b2","Open the results folder"),
          downloadButton("downLoadFinalReport_b2", "Download Results")
       )
@@ -166,16 +166,16 @@ server <- function(session, input, output) {
     # Deactivate buttons that need other things to function
     deactivateItems(
       c(
-        "fastqPathSelect",
-        "outputPathSelect",
-        "compileConfig",
-        "buildContrasts",
-        "editComparisons",
-        "downloadRepo",
-        "runWorkflow",
-        "checkStatus",
-        "btn_next",
-        "btn_prev"
+        # "fastqPathSelect",
+        # "outputPathSelect",
+        # "compileConfig",
+        # "buildContrasts",
+        # "editComparisons",
+        # "downloadRepo",
+        # "runWorkflow",
+        # "checkStatus",
+        # "btn_next",
+        # "btn_prev"
       )
     )
   })
@@ -247,7 +247,7 @@ server <- function(session, input, output) {
       total = length(globals$tab_order),
       range_value = c(1,length(globals$tab_order))
     )
-    deactivateItems("btn_next")
+    # deactivateItems("btn_next")
   })
   
   observeEvent(input$btn_prev, {
@@ -449,6 +449,8 @@ server <- function(session, input, output) {
         type = "error"
       )
       return()
+    }else{
+      globals$checks$outputDirCheck <- TRUE
     }
     
     ### 
@@ -596,7 +598,7 @@ server <- function(session, input, output) {
       units = globals$units,
       repoPath = repoPath
     )
-    
+    message('done with build_comparisons')
     ncontr <- nrow(comparisons)
     output$contrastsInfo1 <- renderText({ paste0("Saved the following ",ncontr," comparisons into ",repoPath,"/config/samplesheet/comparisons.tsv") })
     output$contrastsTableOutput <- renderTable({ comparisons })
@@ -673,6 +675,19 @@ server <- function(session, input, output) {
   observeEvent(input$checkStatus, {
     # Poll status
     output$job_status_refresh <- renderText({
+      squeue_output <- system2("squeue", args = c("-j", globals$job_id), stdout = TRUE)
+      paste(squeue_output, collapse = "\n")
+    })
+  })
+  
+  ## 6.2 Check Job Status Existing Workflow ----
+  # actionButton("checkStatus_b2","Click here to refresh job status"),
+  # verbatimTextOutput("job_status_refresh_b2"),
+  # actionButton("openResults_b2","Open the results folder"),
+  # downloadButton("downLoadFinalReport_b2", "Download Results")
+  observeEvent(input$checkStatus_b2, {
+    message('checkingStatus_b2')
+    output$job_status_refresh_b2 <- renderText({
       squeue_output <- system2("squeue", args = c("-j", globals$job_id), stdout = TRUE)
       paste(squeue_output, collapse = "\n")
     })
