@@ -5,89 +5,97 @@
 #' 
 #' sample from 
 #' 
-#' @param genomics_lib_template genomics library template 
-#' @param repoName path to rnaseq_workflow
+#' @param inputFileName name of samplesheet input
+#' @param df already read in .tsv of .csv
+#' @param fq1_suffix suffix added to sample col to get fq1 filename
+#' @param fq2_suffix suffix added to sample col to get fq2 filename
 #' 
 #' @export
 #'
 #' @examples
 #'
 build_units_TSV <- function(
-    inputFile = NULL,
-    genomics_lib_template = NULL,
-    repoName = NULL,
+    inputFileName = NULL,
+    df,
     fq1_suffix = '_L000_R1_001.fastq.gz',
     fq2_suffix = '_L000_R2_001.fastq.gz'
 ) {
   
-  # expand this to check all columns in lib template and pass warning 1, 2 , 3 w/ error messages in app
-  columnsFromGenomics <- c('Library.Name')
   
-  columns.in <- c(
-    'genotype',
-    'cell.line',
-    'cell.type',
-    'treatment',
-    'batch',
-    'condition',
-    'group'
-  )
-  ci <- which(colnames(genomics_lib_template) %in% columns.in)
-  i <- length(ci)
-  # require that a minimum of one of columns.in present
-  # warning('length of i is',length(i))
-  # print(paste('inputFile value:',inputFile))
+  units_columns1 <- c('sample','group')
+  units_columns2 <- c('fq1','fq2')
+  columnsFromGenomics <- c('Library.Name','Library.ID','Library.Prep.Kit')
+  
+  # === units.tsv complete
+  if(all(c(units_columns1,units_columns2) %in% colnames(df))){
+    message('complete units.tsv input')
     
-  # stopifnot(is.data.frame(genomics_lib_template))
-  if (i<1) stop(paste("None of these columns found in ",inputFile,":\n",paste(columns.in,collapse="\n")))
-  # print(colnames(genomics_lib_template))
-  
-  # validate that anyof the columns.in have more than two levels
-  j <- unlist(lapply(ci,FUN=function(x){
-    length(unique(genomics_lib_template[,ci]))
-  }))
-  warning('value of j',j)
-  if (!any(j>1)) stop(paste("None of these columns in ",inputFile," have >1 level:\n",paste(columns.in,collapse="\n")))
-  
-  units <- genomics_lib_template %>% dplyr::select(
-    any_of(c(columnsFromGenomics,columns.in))
-  )
-  
-  # set RG column to null
-  units$RG <- NA
-  
-  units <- units %>% 
-    dplyr::rename('sample'='Library.Name')  %>%
-    dplyr::mutate(
-      fq1 = paste0(sample,fq1_suffix),
-      fq2 = paste0(sample,fq2_suffix)
-    ) %>% dplyr::select('sample', 'fq1', 'fq2', 'RG', everything())
-  
-  readr::write_delim(units,file=file.path(repoName,'config/samplesheet/units.tsv'),
-              delim="\t",quote="none")
-  
-  # ==   check that all expected 'Library Name' files are also FASTQS
-  fefq1 <- lapply(units$fq1,FUN=function(fq){
-    path <- file.path(repoName,'raw_data',fq)
-    exists <- file.exists(path)
-    if (!exists) message("NOT FOUND: ", path)
-    return(exists)
-  })
-  all_fq1_found <- all(unlist(fefq1)==TRUE)
-  fefq2 <- lapply(units$fq2,FUN=function(fq){
-    path <- file.path(repoName,'raw_data',fq)
-    exists <- file.exists(path)
-    if (!exists) message("NOT FOUND: ", path)
-    return(exists)
-  })
-  all_fq2_found <- all(unlist(fefq2)==TRUE)
-  
-  
-  return(
-    list(
-      'units' = units,
-      'all_fq1_found' = all_fq1_found,
-      'all_fq2_found' = all_fq2_found
+    if (!'RG' %in% colnames(df)) { df$RG <- NA }
+    df <- df %>% dplyr::select(all_of(c(units_columns1,units_columns2)),everything())
+    
+    return(
+      list(
+        'units' = df,
+        'message' = 'Thank you for inputing a complete units.tsv!'
+      )
     )
-  )
+    
+  }else if(all(units_columns1 %in% colnames(df))){
+    message('no fq1 or fq2 columns in input')
+    if (!'RG' %in% colnames(df)) { df$RG <- NA }
+    df <- df %>% dplyr::select(all_of(c(units_columns1)),everything())
+    return(
+      list(
+        'units' = df,
+        'message' = 'One or both of fq1 and fq2 columns are missing. We will attempt to autodetect filenames during the next step.'
+      )
+    )
+  }else if(all(columnsFromGenomics %in% colnames(df))){
+    message('genomics library template input')
+    
+    columns.in <- c(
+      'genotype',
+      'cell.line',
+      'cell.type',
+      'treatment',
+      'batch',
+      'condition',
+      'group'
+    )
+    ci <- which(colnames(df) %in% columns.in)
+    i <- length(ci)
+
+    if (i<1) stop(paste("None of these columns found in genomics library template ",inputFileName,":\n",paste(columns.in,collapse="\n\nYou need to add one of these columns to use this as a samplesheet")))
+
+    # validate that anyof the columns.in have more than two levels
+    j <- unlist(lapply(ci,FUN=function(x){
+      length(unique(df[,ci]))
+    }))
+    message('value of anyof columns ',j)
+    if (!any(j>1)) stop(paste("None of these columns in ",inputFileName," have >1 level:\n",paste(columns.in,collapse="\n")))
+    
+    units <- df %>% dplyr::select(
+      any_of(c(columnsFromGenomics[1],columns.in))
+    )
+    
+    # set RG column to null
+    if (!'RG' %in% colnames(units)) { units$RG <- NA }
+    
+    units <- units %>% 
+      dplyr::rename('sample'='Library.Name')  %>%
+      dplyr::mutate(
+        fq1 = paste0(sample,fq1_suffix),
+        fq2 = paste0(sample,fq2_suffix)
+      ) %>% dplyr::select('sample', 'fq1', 'fq2', 'RG', everything())
+    
+    return(
+      list(
+        'units' = units,
+        'message' = 'Autodetected a genomics core library template.'
+      )
+    )
+  }else{
+    # ---
+    stop(paste('Error: Not able to detect required columns sample or group in',inputFileName,'\n'))
+  }
 }

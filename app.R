@@ -53,7 +53,10 @@ ui <- UINav(
         shinyDirButton("fastqPathSelect","Select FASTQ Input Folder",
                    "Please select folder with FASTQs", viewtype = "icon"),
         navOutputText("fastqDirText"),
-        navOutputText("fqFound")
+        navOutputText("fq1Found"),
+        navOutputText("fq2Found"),
+        navOutputText("unitsTitle"),
+        tableOutput("showUnitsFastqStep")
       ),
     ),
     nav_panel("step3",card( height = cardHeight,
@@ -89,10 +92,10 @@ ui <- UINav(
            p("We are working to build more options. For now, contact bbc@vai.org for help building more complicated contrasts.")
           )
         ),
-        actionButton("buildContrasts","Build contrasts from units.tsv group column"),
+        actionButton("buildContrasts","Build comparisons.tsv from units.tsv group column"),
         navOutputText("contrastsInfo1"),
         tableOutput("contrastsTableOutput"),
-        actionButton("editComparisons", "Optional: edit comparisons.tsv"),
+        actionButton("editComparisons", "Optional: directly edit comparisons.tsv"),
         verbatimTextOutput("filepath")
       ),
     ),
@@ -163,16 +166,16 @@ server <- function(session, input, output) {
     # Deactivate buttons that need other things to function
     deactivateItems(
       c(
-        # "fastqPathSelect",
-        # "outputPathSelect",
-        # "compileConfig",
-        # "buildContrasts",
-        # "editComparisons",
-        # "downloadRepo",
-        # "runWorkflow",
-        # "checkStatus",
-        # "btn_next",
-        # "btn_prev"
+        "fastqPathSelect",
+        "outputPathSelect",
+        "compileConfig",
+        "buildContrasts",
+        "editComparisons",
+        "downloadRepo",
+        "runWorkflow",
+        "checkStatus",
+        "btn_next",
+        "btn_prev"
       )
     )
   })
@@ -194,7 +197,7 @@ server <- function(session, input, output) {
   observeEvent(input$btn_new, {
     removeModal()
     # rv$path <- "new"
-    globals$tab_order <- c("step1", "step2", "step3", "step4", "step5", "step6", "step7")
+    globals$tab_order <- c("step1", "step2", "step3", "step4", "step5", "step6")
     globals$current_index <- 1
     nav_select("main_tabs", selected = globals$tab_order[1])
     total_steps <- length(globals$tab_order)
@@ -244,7 +247,7 @@ server <- function(session, input, output) {
       total = length(globals$tab_order),
       range_value = c(1,length(globals$tab_order))
     )
-    # deactivateItems("btn_next")
+    deactivateItems("btn_next")
   })
   
   observeEvent(input$btn_prev, {
@@ -315,15 +318,21 @@ server <- function(session, input, output) {
       message('inputFile=',file$name)
       message('df=',class(df))
       build_units_TSV_output <- build_units_TSV(
-        inputFile = file$name,
+        inputFileName = file$name,
         df = df
       )
       globals$checks$sampleSheetCheck <- TRUE
       globals$units <- build_units_TSV_output[['units']]
       
+      message <- build_units_TSV_output[['message']]
+      # message can be 1 of 3:
+      # genomicsLibTemplate
+      # autodetectEqTrue
+      # unitsComplete
+      
       shinyalert(
         title = "Samplesheet Uploaded!",
-        text  = paste("Go to next\n\n","Please contact bbc@vai.org with questions"),
+        text  = paste(message,"\nGo to next\n\n","Please contact bbc@vai.org with questions"),
         type  = "success"
       )
     }, error = function(e) {
@@ -376,31 +385,42 @@ server <- function(session, input, output) {
       units = globals$units,
       fastqDir = fastqDir
     )
-    
+    globals$units <- check_FASTQs_result[['units']] # reset if fq1 and fq2 were added
+
     if(check_FASTQs_result[['all_fq1_found']]==FALSE){
       shinyalert(
         title = "fq1 files missing!",
-        text  = paste0("Not all read 1 FASTQs from fq1 column of units.tsv (Step 1) were found in ",fastqDir,"."),
+        text  = paste0("Not all read 1 FASTQs from fq1 column of units.tsv were found in ",fastqDir,"."),
         type  = "warning"
       )
       globals$checks$fastqFilesFound <- FALSE
-    }else if(check_FASTQs_result[['all_fq2_found']]==FALSE){
+      output$fq1Found <- renderText({ paste0("Not all ",nrow(globals$units)," expected FASTQs from column fq1 of units.tsv were found in ",fastqDir,"\n") })
+    }
+    if(check_FASTQs_result[['all_fq2_found']]==FALSE){
       shinyalert(
         title = "fq2 files missing!",
-        text  = paste0("Not all read 2 FASTQs from fq2 column of units.tsv (Step 1) were found in ",fastqDir,"."),
+        text  = paste0("Not all read 2 FASTQs from fq2 column of units.tsv were found in ",fastqDir,"."),
         type  = "warning"
       )
       globals$checks$fastqFilesFound <- FALSE
-    }else{
+      output$fq2Found <- renderText({ paste0("Not all ",nrow(globals$units)," expected FASTQs from column fq2 of units.tsv were found in ",fastqDir,"\n") })
+    }
+    if(check_FASTQs_result[['all_fq2_found']]==TRUE & check_FASTQs_result[['all_fq1_found']]==TRUE){
       globals$checks$fastqFilesFound <- TRUE
       # get # of files
       n <- nrow(globals$units)
-      output$fqFound <- renderText({ paste0("Found all ",n," expected FASTQs in ",fastqDir," from column 'fq1' and 'fq2' of ",globals$samplesheet_path) })
+      output$fqFound <- renderText({ paste0("Found all ",n," expected FASTQs in ",fastqDir,"\n") })
+      output$unitsTitle <- renderText({'units.tsv'})
+      output$showUnitsFastqStep <- renderTable({  globals$units })
       shinyalert(
-        title = "FASTQ Files OK!",
+        title = "All FASTQ Files Found!",
         text  = paste0("Go to next"),
         type  = "success"
       )
+    }else{
+      # finish up error messags and print table for when not found
+      output$unitsTitle <- renderText({'units.tsv'})
+      output$showUnitsFastqStep <- renderTable({  globals$units })
     }
     
     # Check if 'Check Files and Folders' runnable
