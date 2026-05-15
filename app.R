@@ -440,13 +440,8 @@ server <- function(session, input, output) {
     # Check if selected directory is writable
     # Returns TRUE if writable, FALSE otherwise
     is_writable <- file.access(outputDir, mode = 2) == 0
-    noWorkflowYet <- dir.exists(paste0(outputDir,"/rnaseq_workflow"))
     # warning("is_writable: ",is_writable)
-    if(is_writable & noWorkflowYet){
-      output$outputErrorText <- renderText({ paste0("The selected output directory is: ",outputDir) })
-      globals$checks$outputDirCheck <- TRUE
-      
-    }else if (noWorkflowYet){
+    if (! is_writable){
       shinyalert(
         title = "Selected Output Directory Not Writable",
         text = paste("The selected directory is not writable:\n\n", outputDir,
@@ -454,21 +449,6 @@ server <- function(session, input, output) {
         type = "error"
       )
       return()
-    } else if (is_writable){
-      shinyalert(
-        title = "Selected Output Directory Already Has Workflow",
-        text = paste("The selected directory is already has a workflow:\n\n", outputDir,
-                     "\n\nPlease select a different directory or remove the existing workflow (folder labeled rnaseq_workflow)."),
-        type = "error"
-      )
-      return()
-    } else {
-      shinyalert(
-        title = "Selected Output Directory Already Has Workflow AND is Not Writable",
-        text = paste("The selected directory is already has a workflow AND is not writable:\n\n", outputDir,
-                     "\n\nPlease select a different directory with write permissions and ensure it doesn't have an existing workflow (folder labeled rnaseq_workflow)."),
-        type = "error"
-      )
     }
     
     ### 
