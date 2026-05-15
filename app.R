@@ -25,7 +25,11 @@ cardHeight <<- '65vh'
 # Necessary Files here:
 template <<- read_excel(paste0("Necessary Files/SampleTemplate.xlsx"), sheet = 1)
 # Root Dir for Folder Selection:
-rootDir <<- c(Home = "~", "HPC Primary" = "~/../../primary", "HPC Secondary" = "~/../../secondary", "researchtemp" = "~/../../varidata/researchtemp/")
+rootDir <<- c('HPC Home' = file.path("/home",Sys.getenv("USER")), 
+              'Local Home' = "~",
+              "HPC Projects" = "/varidata/research/projects/", 
+              "HPC researchtemp" = "/varidata/researchtemp/hpctmp/"
+)
 restrictDir <<- c("afs","bin","cloudstorage","cm","dev","etc","legacy","lib",
                   "lib64","localdisk","media","mnt","opt","proc","root","run",
                   "sbin","srv","sys","tmp","usr")
@@ -113,6 +117,7 @@ ui <- UINav(
     nav_panel("stepb1",card( height = cardHeight,
         shinyDirButton("selectExistingWorkflow","Select Existing 'rnaseq_workflow' Folder",
                        "Select Existing 'rnaseq_workflow' Folder", viewtype = "icon"),
+        verbatimTextOutput("chosenExistingDirText")
       )
     ),
     nav_panel('stepb2',card( height = cardHeight,
@@ -159,7 +164,9 @@ server <- function(session, input, output) {
     units = NULL,
     repoPath = NULL,
     tab_order = NULL, # for dynamic tabs
-    current_index = 1 # for dynamic tabs
+    current_index = 1, # for dynamic tabs
+    yaml_path_job_id = NULL,
+    selectExistingWorkflow = NULL
   )
   
   observe({
@@ -502,7 +509,8 @@ server <- function(session, input, output) {
       
       # modify bin/run_snake.sh
       script <- readLines(file.path(repoPath,"bin/run_snake.sh"))
-      script <- gsub("cd \\$SLURM_SUBMIT_DIR", paste("cd", repoPath), script)
+      # script <- gsub("cd \\$SLURM_SUBMIT_DIR", paste("cd", repoPath), script)
+      script <- gsub("cd \\$SLURM_SUBMIT_DIR", 'sleep 10; exit 1;', script)
       writeLines(script, file.path(repoPath,"bin/run_snake_APP.sh"))
       
       output$gitCloneMessage <- renderText({ paste("Cloned", repoName, "into", repoPath) })
@@ -661,6 +669,10 @@ server <- function(session, input, output) {
         type  = "info"
       )
       
+      # save YAML with job id for later
+      write_yaml(file = file.path(repoPath,'app.yaml'),x = list('job_id'=job_id))
+      globals$yaml_path_job_id = file.path(repoPath,'app.yaml')
+      
     }, error = function(e) {
       showNotification(e$message, type = "error")
       shinyalert(
@@ -687,6 +699,7 @@ server <- function(session, input, output) {
   # downloadButton("downLoadFinalReport_b2", "Download Results")
   observeEvent(input$checkStatus_b2, {
     message('checkingStatus_b2')
+    message('globals$job_id: ',globals$job_id)
     output$job_status_refresh_b2 <- renderText({
       squeue_output <- system2("squeue", args = c("-j", globals$job_id), stdout = TRUE)
       paste(squeue_output, collapse = "\n")
@@ -695,9 +708,56 @@ server <- function(session, input, output) {
   
   ## 6.3 Open Results Folder ----
   observeEvent(input$openResults, {
-    runjs("window.open('https://ondemand1.vai.zone/pun/sys/dashboard/files/fs/varidata/researchtemp/hpctmp/ian.beddows/rnaseq_workflow/results', '_blank');")  
+    baseName <- 'https://ondemand1.vai.zone/pun/sys/dashboard/files/fs/'
+    path <- file.path(baseName, globals$repoPath, 'results')
+    message('path: ', path)
+    runjs(paste0("window.open('", path, "', '_blank');"))
   })
  
+  ## 7.0 Select Existing Output Folder ----
+  shinyDirChoose(input, "selectExistingWorkflow", roots = rootDir, session = session, filetypes = character(0),
+                 allowDirCreate = TRUE)
+  observeEvent(input$selectExistingWorkflow,{
+    outputDir <- parseDirPath(rootDir,input$selectExistingWorkflow)
+    message('outputDir ',outputDir)
+    req(parseDirPath(rootDir, input$selectExistingWorkflow) != "") # this stops code being run until a dir is selected
+    
+    # do checks if it not a repo named rnaseq_workflow
+    if (basename(outputDir) != "rnaseq_workflow") {
+      warning(paste(outputDir," is not the rnaseq_workflow repo ... "))
+      # check if rnaseq_workflow exists in selected directory
+      if("rnaseq_workflow" %in% list.files(outputDir)){
+        message(paste("Found an rnaseq_workflow directory in ",outputDir," ... using that ..."))
+        globals$selectExistingWorkflow <- file.path(outputDir,'rnaseq_workflow')
+        output$chosenExistingDirText <- renderText({ paste('Selected workflow folder:',globals$selectExistingWorkflow,"\n")  })
+        globals$job_id <- read_yaml(file.path(globals$selectExistingWorkflow,'app.yaml'))$job_id
+        activateItems(c('btn_next'))
+      }else{
+        # couldn't be found
+        shinyalert(
+          title = paste0("Could not identify rnaseq_workflow folder in ",outputDir,"!"),
+          text  = paste("\n\n","Please contact bbc@vai.org with questions"),
+          type  = "error"
+        )
+      }
+      
+      
+    }else{
+      # checks out because folder matches rnaseq_workflow exactly
+      globals$selectExistingWorkflow <- outputDir
+      output$chosenExistingDirText <- renderText({ paste('Selected workflow folder:',globals$selectExistingWorkflow,"\n")  })
+      globals$job_id <- read_yaml(file.path(globals$selectExistingWorkflow,'app.yaml'))$job_id
+      activateItems(c('btn_next'))
+    }
+    
+    message('value of globals$selectExistingWorkflow ',globals$selectExistingWorkflow)
+  })
+    
+  
+  
+  
+  
+  
   ## 6.2 Download Final Report ----
   output$downLoadFinalReport <- downloadHandler(
     filename = function() {
