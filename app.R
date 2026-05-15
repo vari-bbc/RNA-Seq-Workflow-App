@@ -708,7 +708,10 @@ server <- function(session, input, output) {
   
   ## 6.3 Open Results Folder ----
   observeEvent(input$openResults, {
-    runjs("window.open('https://ondemand1.vai.zone/pun/sys/dashboard/files/fs/varidata/researchtemp/hpctmp/ian.beddows/rnaseq_workflow/results', '_blank');")  
+    baseName <- 'https://ondemand1.vai.zone/pun/sys/dashboard/files/fs/'
+    path <- file.path(baseName, globals$repoPath, 'results')
+    message('path: ', path)
+    runjs(paste0("window.open('", path, "', '_blank');"))
   })
  
   ## 7.0 Select Existing Output Folder ----
