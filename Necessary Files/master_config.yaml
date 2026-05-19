@@ -79,6 +79,92 @@ mouse_mm39_gencode:
   # Choose which gene sets you would like to test against
   pathway_str: Reactome,BP,BP-simplified,KEGG,H,C1,C2,C3,C4,C5,C6,C7,C8
 
+worm_c.elegans-WBcel235:
+  ref:
+    index:          /varidata/research/projects/bbc/versioned_references/VERSION/data/c.elegans-WBcel235/indexes/star
+    salmon_index:   /varidata/research/projects/bbc/versioned_references/VERSION/data/c.elegans-WBcel235/indexes/salmon/c.elegans-WBcel235
+    annotation:     /varidata/research/projects/bbc/versioned_references/VERSION/data/c.elegans-WBcel235/annotation/c.elegans-WBcel235.gtf
+    dict: /varidata/research/projects/bbc/versioned_references/VERSION/data/c.elegans-WBcel235/sequence/c.elegans-WBcel235.dict
+    # Below used only for variant calling
+    snpeff_db_id:
+    known_snps:
+    known_indels: 
+    sequence: /varidata/research/projects/bbc/versioned_references/VERSION/data/c.elegans-WBcel235/sequence/c.elegans-WBcel235.fa
+    fai:  /varidata/research/projects/bbc/versioned_references/VERSION/data/c.elegans-WBcel235/sequence/c.elegans-WBcel235.fa.fai
+
+  # OrgDB R package for covnerting gene names. Common choices are 'org.Mm.eg.db' for mouse and 'org.Hs.eg.db' for human.
+  orgdb: org.Ce.eg.db
+
+  # For GSEA quick_ref can only handle human, mouse, rat, and fly; all other organisms need to be filled in manually
+  # kegg_org should be a three or four letter string corresponding to your reference species. List of KEGG species is found here: https://www.genome.jp/kegg/tables/br08606.html
+  kegg_org: cel
+  # reactome_org can be "human", "mouse", "rat", "celegans", "yeast", "zebrafish", "fly" 
+  reactome_org: celegans
+  # Full species name. Applicable input strings can be found by installing the msigdbr library in R and using msigdbr::msigdbr_species()
+  msigdb_organism: Caenorhabditis elegans
+  # Choose which gene sets you would like to test against
+  pathway_str: Reactome,BP,BP-simplified,KEGG,H,C1,C2,C3,C4,C5,C6,C7,C8
+
+fly_dm6_BDGP6.28.100:
+  ref:
+    index:          /varidata/research/projects/bbc/versioned_references/VERSION/data/dm6_BDGP6.28.100/indexes/star
+    salmon_index:   /varidata/research/projects/bbc/versioned_references/VERSION/data/dm6_BDGP6.28.100/indexes/salmon/dm6_BDGP6.28.100
+    annotation:     /varidata/research/projects/bbc/versioned_references/VERSION/data/dm6_BDGP6.28.100/annotation/dm6_BDGP6.28.100.gtf
+    dict: /varidata/research/projects/bbc/versioned_references/VERSION/data/dm6_BDGP6.28.100/sequence/dm6_BDGP6.28.100.dict
+    # Below used only for variant calling
+    snpeff_db_id:
+    known_snps:
+    known_indels: 
+    sequence: /varidata/research/projects/bbc/versioned_references/VERSION/data/dm6_BDGP6.28.100/sequence/dm6_BDGP6.28.100.fa
+    fai:  /varidata/research/projects/bbc/versioned_references/VERSION/data/dm6_BDGP6.28.100/sequence/dm6_BDGP6.28.100.fa.fai
+
+  # OrgDB R package for covnerting gene names. Common choices are 'org.Mm.eg.db' for mouse and 'org.Hs.eg.db' for human.
+  orgdb: org.Dm.eg.db
+
+  # For GSEA quick_ref can only handle human, mouse, rat, and fly; all other organisms need to be filled in manually
+  # kegg_org should be a three or four letter string corresponding to your reference species. List of KEGG species is found here: https://www.genome.jp/kegg/tables/br08606.html
+  kegg_org: dme
+  # reactome_org can be "human", "mouse", "rat", "celegans", "yeast", "zebrafish", "fly" 
+  reactome_org: fly
+  # Full species name. Applicable input strings can be found by installing the msigdbr library in R and using msigdbr::msigdbr_species()
+  msigdb_organism: Drosophila melanogaster
+  # Choose which gene sets you would like to test against
+  pathway_str: Reactome,BP,BP-simplified,KEGG,H,C1,C2,C3,C4,C5,C6,C7,C8
+
+zebrafish_GRCz11:
+  ref:
+    index:          /varidata/research/projects/bbc/versioned_references/VERSION/data/GRCz11/indexes/star
+    salmon_index:   /varidata/research/projects/bbc/versioned_references/VERSION/data/GRCz11/indexes/salmon/GRCz11
+    annotation:     /varidata/research/projects/bbc/versioned_references/VERSION/data/GRCz11/annotation/GRCz11.gtf
+    dict: /varidata/research/projects/bbc/versioned_references/VERSION/data/GRCz11/sequence/GRCz11.dict
+    # Below used only for variant calling
+    snpeff_db_id:
+    known_snps:
+    known_indels: 
+    sequence: /varidata/research/projects/bbc/versioned_references/VERSION/data/GRCz11/sequence/GRCz11.fa
+    fai:  /varidata/research/projects/bbc/versioned_references/VERSION/data/GRCz11/sequence/GRCz11.fa.fai
+
+  # OrgDB R package for covnerting gene names. Common choices are 'org.Mm.eg.db' for mouse and 'org.Hs.eg.db' for human.
+  orgdb: org.Dr.eg.db
+
+  # For GSEA quick_ref can only handle human, mouse, rat, and fly; all other organisms need to be filled in manually
+  # kegg_org should be a three or four letter string corresponding to your reference species. List of KEGG species is found here: https://www.genome.jp/kegg/tables/br08606.html
+  kegg_org: dre
+  # reactome_org can be "human", "mouse", "rat", "celegans", "yeast", "zebrafish", "fly" 
+  reactome_org: zebrafish
+  # Full species name. Applicable input strings can be found by installing the msigdbr library in R and using msigdbr::msigdbr_species()
+  msigdb_organism: Danio rerio
+  # Choose which gene sets you would like to test against
+  pathway_str: Reactome,BP,BP-simplified,KEGG,H,C1,C2,C3,C4,C5,C6,C7,C8
+
+
+
+
+
+
+
+
+
 # == in-App Options ==
 modifiable_parameters:
   # FDR cutoff

@@ -28,7 +28,7 @@ build_units_TSV <- function(
   
   # === units.tsv complete
   if(all(c(units_columns1,units_columns2) %in% colnames(df))){
-    message('complete units.tsv input')
+    message('Samplesheet has required columns\n',paste(c(units_columns1,units_columns2),collapse="\n"))
     
     if (!'RG' %in% colnames(df)) { df$RG <- NA }
     df <- df %>% dplyr::select(all_of(c(units_columns1,units_columns2)),everything())
@@ -36,18 +36,18 @@ build_units_TSV <- function(
     return(
       list(
         'units' = df,
-        'message' = 'Thank you for inputing a complete units.tsv!'
+        'message' = paste0('Samplesheet has required columns \'sample\', \'group\', \'fq1\' and \'fq2\'.')
       )
     )
     
   }else if(all(units_columns1 %in% colnames(df))){
-    message('no fq1 or fq2 columns in input')
+    message('Samplesheet has required columns\n',paste(c(units_columns1),collapse="\n"))
     if (!'RG' %in% colnames(df)) { df$RG <- NA }
     df <- df %>% dplyr::select(all_of(c(units_columns1)),everything())
     return(
       list(
         'units' = df,
-        'message' = 'One or both of fq1 and fq2 columns are missing. We will attempt to autodetect filenames during the next step.'
+        'message' = paste('Samplesheet has required columns \'sample\' and \'group\'.\n',"\nColumns \'fq1\' and \'fq2\' were not found.") 
       )
     )
   }else if(all(columnsFromGenomics %in% colnames(df))){

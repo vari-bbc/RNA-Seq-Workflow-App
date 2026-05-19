@@ -76,10 +76,14 @@ check_FASTQs <- function(
     
     
     # ==  confirm all fq1 and fq2 files exist in inputDir
+    # missing_fq1 <- list()
     fefq1 <- lapply(units$fq1,FUN=function(fq){
       path <- file.path(fastqDir,fq)
       exists <- file.exists(path)
-      if (!exists) message("NOT FOUND: ", path)
+      if (!exists) {
+        message("NOT FOUND: ", path)
+        # missing_fq1[[length(missing_fq1) + 1]] <<- path
+      }
       return(exists)
     })
     all_fq1_found <- all(unlist(fefq1)==TRUE)
