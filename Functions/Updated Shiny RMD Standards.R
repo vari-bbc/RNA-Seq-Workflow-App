@@ -304,6 +304,27 @@ UINav <- function( ...,logoFile = ""){
 }
 
 
+UINav2 <- function(..., header = NULL, footer = NULL, logoFile = "") {
+  page_fluid(
+    useShinyjs(),
+    navPadding(),
+    header,
+    navBar(
+      navItem(img(src = "VAI 2 Line White.png", height = "35vh")),
+      navItem(img(src = logoFile, height = "40vh")),
+      navItem(tags$a(
+        href = "https://github.com/vari-bbc/RNA-Seq-Workflow-App",
+        target = "_blank",
+        h3(appName)
+      )),
+      nav_spacer(),
+      navDarkSwitch()
+    ),
+    ...,
+    footer
+  )
+}
+
 # ___________________ ----
 # RMD Nav Base ----
 
