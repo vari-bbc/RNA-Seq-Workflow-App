@@ -312,7 +312,11 @@ UINav2 <- function(..., header = NULL, footer = NULL, logoFile = "") {
     navBar(
       navItem(img(src = "VAI 2 Line White.png", height = "35vh")),
       navItem(img(src = logoFile, height = "40vh")),
-      navItem(h3(appName)),
+      navItem(tags$a(
+        href = "https://github.com/vari-bbc/RNA-Seq-Workflow-App",
+        target = "_blank",
+        h3(appName)
+      )),
       nav_spacer(),
       navDarkSwitch()
     ),
