@@ -72,10 +72,13 @@ ui <- UINav2(
     # ),
     nav_panel("step2",card( height = cardHeight,
         tooltip(
-          actionButton("outputPathSelect",  tagList(
-              bsicons::bs_icon("folder-plus", size = "1.5em"),
-              tags$span("Select folder with FASTQ files", style = "font-size: 1.4rem; vertical-align: middle;")
-            )
+          shinyDirButton(
+            id    = "fastqPathSelect",
+            label = "Select folder with FASTQ files",
+            title = "Select folder with FASTQ files",
+            icon  = bsicons::bs_icon("folder-plus", size = "1.5em"),
+            class = "btn-default",
+            style = "font-size: 1.5rem; padding: 0.75rem 1.5rem;"
           ),
           'If fq[12] columns missing, then FASTQs are searched using the following regex\n paste0("^", sample, ".*_R?[12].*\\.(fastq|fq)\\.gz$$")'
         ),
@@ -87,10 +90,13 @@ ui <- UINav2(
       ),
     ),
     nav_panel("step3",card( height = cardHeight,
-        actionButton("outputPathSelect",  tagList(
-            bsicons::bs_icon("folder-plus", size = "1.5em"),
-            tags$span("Please select a folder to run the analysis", style = "font-size: 1.4rem; vertical-align: middle;")
-          )
+        shinyDirButton(
+          id    = "outputPathSelect",
+          label = "Please select a folder to run the analysis",
+          title = "Please select a folder to run the analysis",
+          icon  = bsicons::bs_icon("folder-plus", size = "1.5em"),
+          class = "btn-default",
+          style = "font-size: 1.5rem; padding: 0.75rem 1.5rem;"
         ),
         navOutputText("outputErrorText"),
         navOutputText("outputErrorText2"),
@@ -165,10 +171,13 @@ ui <- UINav2(
       )
     ),
     nav_panel("stepb1",card( height = cardHeight,
-         actionButton("selectExistingWorkflow",  tagList(
-             bsicons::bs_icon("folder-plus", size = "1.5em"),
-             tags$span("Select an existing workflow", style = "font-size: 1.4rem; vertical-align: middle;")
-           )
+         shinyDirButton(
+           id    = "selectExistingWorkflow",
+           label = "Select an existing workflow",
+           title = "Select an existing workflow",
+           icon  = bsicons::bs_icon("folder-plus", size = "1.5em"),
+           class = "btn-default",
+           style = "font-size: 1.5rem; padding: 0.75rem 1.5rem;"
          ),
         verbatimTextOutput("chosenExistingDirText")
       )
@@ -227,7 +236,8 @@ server <- function(session, input, output) {
     current_index = 1, # for dynamic tabs
     yaml_path_job_id = NULL,
     logSTDOUT = 'rnaseq_workflow_app_run.o',
-    logSTDERR = 'rnaseq_workflow_app_run.e'
+    logSTDERR = 'rnaseq_workflow_app_run.e',
+    fastqDir = NULL
   )
   
   observe({
@@ -248,7 +258,7 @@ server <- function(session, input, output) {
         "openLogSTDOUT",
         "downLoadFinalReport",
         "openResults",
-        
+        # 
         "btn_next"
         # "btn_prev"
       )
@@ -324,7 +334,7 @@ server <- function(session, input, output) {
       total = length(globals$tab_order),
       range_value = c(1,length(globals$tab_order))
     )
-    # deactivateItems("btn_next")
+    deactivateItems("btn_next")
   })
   
   observeEvent(input$btn_prev, {
@@ -347,6 +357,7 @@ server <- function(session, input, output) {
   ## 1.0 Import Samplesheet ----
   observeEvent(input$sampleUpload, {
     req(input$sampleUpload)
+    message('globals$checks$sampleSheetCheck ',globals$checks$sampleSheetCheck)
     
     file <- input$sampleUpload
     globals$samplesheet_path <- file$name
@@ -430,92 +441,100 @@ server <- function(session, input, output) {
       globals$checks$sampleSheetCheck <- FALSE
     })
     
+    message('globals$checks$sampleSheetCheck ',globals$checks$sampleSheetCheck)
+    
     if(globals$checks$sampleSheetCheck){
+      
       activateItems(c('fastqPathSelect','btn_next'))
+      message('activating fastqPathSelect')
     }
   })
   
   ## 2.0 Select FASTQ Folder ----
-  shinyDirChoose(input, "fastqPathSelect", roots = rootDir, session = session, filetypes = character(0),
-                 allowDirCreate = FALSE, hidden = FALSE, restrictions = restrictDir)
+    shinyDirChoose(input, "fastqPathSelect", roots = rootDir, session = session, filetypes = character(0),
+                   allowDirCreate = FALSE, hidden = FALSE, restrictions = restrictDir)
+    
+    observeEvent(input$fastqPathSelect,{
+      message('observed input$fastqPathSelect')
+      fastqDir <- parseDirPath(rootDir,input$fastqPathSelect)
+      
+      req(parseDirPath(rootDir, input$fastqPathSelect) != "") # this stops code being run until a dir is selected
+      
+      # Check if selected directory is readable
+      # Returns TRUE if readable, FALSE otherwise
+      is_readable <- file.access(fastqDir, mode = 4) == 0
+      warning("is_readable: ",is_readable)
+      if(is_readable == TRUE){
+        output$fastqDirText <- renderText({ paste0("The selected input directory is: ",fastqDir) })
+      }else{
+        shinyalert(
+          title = "Selected FASTQ Directory Not Readable",
+          text = paste("The selected directory is not readable:\n\n", fastqDir,
+                       "\n\nPlease select a different directory with read permissions."),
+          type = "error",
+          closeOnClickOutside = TRUE
+        )
+        return()
+      }
+      
+      # check that FASTQs exist in fastqDir
+      check_FASTQs_result <- check_FASTQs(
+        units = globals$units,
+        fastqDir = fastqDir
+      )
+      globals$units <- check_FASTQs_result[['units']] # reset if fq1 and fq2 were added
   
-  observeEvent(input$fastqPathSelect,{
-    fastqDir <- parseDirPath(rootDir,input$fastqPathSelect)
-    
-    req(parseDirPath(rootDir, input$fastqPathSelect) != "") # this stops code being run until a dir is selected
-    
-    # Check if selected directory is readable
-    # Returns TRUE if readable, FALSE otherwise
-    is_readable <- file.access(fastqDir, mode = 4) == 0
-    warning("is_readable: ",is_readable)
-    if(is_readable == TRUE){
-      output$fastqDirText <- renderText({ paste0("The selected input directory is: ",fastqDir) })
-    }else{
-      shinyalert(
-        title = "Selected FASTQ Directory Not Readable",
-        text = paste("The selected directory is not readable:\n\n", fastqDir,
-                     "\n\nPlease select a different directory with read permissions."),
-        type = "error",
-        closeOnClickOutside = TRUE
-      )
-      return()
-    }
-    
-    # check that FASTQs exist in fastqDir
-    check_FASTQs_result <- check_FASTQs(
-      units = globals$units,
-      fastqDir = fastqDir
-    )
-    globals$units <- check_FASTQs_result[['units']] # reset if fq1 and fq2 were added
-
-    if(check_FASTQs_result[['all_fq1_found']]==FALSE){
-      shinyalert(
-        title = "fq1 files missing!",
-        text  = paste0("Not all read 1 FASTQs from fq1 column of units.tsv were found in ",fastqDir,"."),
-        type  = "warning"
-      )
-      globals$checks$fastqFilesFound <- FALSE
-      output$fq1Found <- renderText({ paste0("Not all ",nrow(globals$units)," expected FASTQs from column fq1 of units.tsv were found in ",fastqDir,"\n") })
-    }
-    if(check_FASTQs_result[['all_fq2_found']]==FALSE){
-      shinyalert(
-        title = "fq2 files missing!",
-        text  = paste0("Not all read 2 FASTQs from fq2 column of units.tsv were found in ",fastqDir,"."),
-        type  = "warning",
-        closeOnClickOutside = TRUE
-      )
-      globals$checks$fastqFilesFound <- FALSE
-      output$fq2Found <- renderText({ paste0("Not all ",nrow(globals$units)," expected FASTQs from column fq2 of units.tsv were found in ",fastqDir,"\n") })
-    }
-    if(check_FASTQs_result[['all_fq2_found']]==TRUE & check_FASTQs_result[['all_fq1_found']]==TRUE){
-      globals$checks$fastqFilesFound <- TRUE
-      # get # of files
-      n <- nrow(globals$units)
-      output$fqFound <- renderText({ paste0("Found all ",n," expected FASTQs in ",fastqDir,"\n") })
-      output$unitsTitle <- renderText({'units.tsv'})
-      output$showUnitsFastqStep <- renderTable({  globals$units })
-      shinyalert(
-        title = "All FASTQ Files Found!",
-        text  = paste0("Go to next"),
-        type  = "success",
-        closeOnClickOutside = TRUE
-      )
-    }else{
-      # finish up error messags and print table for when not found
-      output$unitsTitle <- renderText({'units.tsv'})
-      output$showUnitsFastqStep <- renderTable({  globals$units })
-    }
-    
-    # Check if 'Check Files and Folders' runnable
-    if (globals$checks$fastqFilesFound){
-      activateItems(c("outputPathSelect","btn_next"))
-    }
-  })
+      if(check_FASTQs_result[['all_fq1_found']]==FALSE){
+        shinyalert(
+          title = "fq1 files missing!",
+          text  = paste0("Not all read 1 FASTQs from fq1 column of units.tsv were found in ",fastqDir,"."),
+          type  = "warning"
+        )
+        globals$checks$fastqFilesFound <- FALSE
+        output$fq1Found <- renderText({ paste0("Not all ",nrow(globals$units)," expected FASTQs from column fq1 of units.tsv were found in ",fastqDir,"\n") })
+      }
+      if(check_FASTQs_result[['all_fq2_found']]==FALSE){
+        shinyalert(
+          title = "fq2 files missing!",
+          text  = paste0("Not all read 2 FASTQs from fq2 column of units.tsv were found in ",fastqDir,"."),
+          type  = "warning",
+          closeOnClickOutside = TRUE
+        )
+        globals$checks$fastqFilesFound <- FALSE
+        output$fq2Found <- renderText({ paste0("Not all ",nrow(globals$units)," expected FASTQs from column fq2 of units.tsv were found in ",fastqDir,"\n") })
+      }
+      if(check_FASTQs_result[['all_fq2_found']]==TRUE & check_FASTQs_result[['all_fq1_found']]==TRUE){
+        globals$checks$fastqFilesFound <- TRUE
+        # get # of files
+        n <- nrow(globals$units)
+        output$fqFound <- renderText({ paste0("Found all ",n," expected FASTQs in ",fastqDir,"\n") })
+        output$unitsTitle <- renderText({'units.tsv'})
+        output$showUnitsFastqStep <- renderTable({  globals$units })
+        shinyalert(
+          title = "All FASTQ Files Found!",
+          text  = paste0("Go to next"),
+          type  = "success",
+          closeOnClickOutside = TRUE
+        )
+      }else{
+        # finish up error messags and print table for when not found
+        output$unitsTitle <- renderText({'units.tsv'})
+        output$showUnitsFastqStep <- renderTable({  globals$units })
+      }
+      
+      # Check if 'Check Files and Folders' runnable
+      if (globals$checks$fastqFilesFound){
+        activateItems(c("outputPathSelect","btn_next"))
+        globals$fastqDir <- fastqDir
+      }
+    })
   
   ## 3.1 Select Output Folder ----
   shinyDirChoose(input, "outputPathSelect", roots = rootDir, session = session, filetypes = character(0),
                  allowDirCreate = TRUE)
   observeEvent(input$outputPathSelect,{
+    message('observeEvent outputPathSelect')
+    message('fastqDir ',globals$fastqDir)
     outputDir <- parseDirPath(rootDir,input$outputPathSelect)
     
     req(parseDirPath(rootDir, input$outputPathSelect) != "") # this stops code being run until a dir is selected
