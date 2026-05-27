@@ -55,7 +55,7 @@ ui <- UINav2(
               tags$span("Select Samplesheet", style = "font-size: 1.4rem; vertical-align: middle;")
             ),
             "Single",
-            tooltipText = 'A minimum samplesheet includes two columns: \"sample\" & \"fastq\". Input file must have a .tsv (tab-separated values) extension.'
+            tooltipText = 'The samplesheet must include two columns: \"sample\" & \"group\". The group column designates sample groups to be compared during the differential expression workflow. Columns named \"fq1\" and \"fq2\" designate the input fastq file names. These columns are needed for the workflow, but optional; if they are not included, an attempt to find the FASTQ files will be made after a FASTQ folder is selected (next tab). Input file must have a .tsv (tab-separated values) or .csv (comma-separated values) extension.'
           ),
           navOutputText("sampleUploadText"),
           navOutputText("showUnitsTSV_Message"),
@@ -75,7 +75,7 @@ ui <- UINav2(
             style = "font-size: 1.5rem; padding: 0.75rem 1.5rem;"
           ),
           # 'If fq[12] columns missing, then FASTQs are searched using the following regex\n paste0("^", sample, ".*_R?[12].*\\.(fastq|fq)\\.gz$$")'
-          'If fq1 and fq2 columns are missing from the samplesheet, then we will attempt to find them in the selected folder. FASTQ files MUST start with the sample name; end in fastq.gz or fq.gz; and have a _1 or _R1 to designate fq1 and _2/_R2 for fq2.)'
+          'If fq1 and fq2 columns are missing from the samplesheet, then an attempt to find them in the selected folder is made. To be found, FASTQ files MUST start with the sample name; end in fastq.gz or fq.gz; and have a _1 or _R1 to designate fq1 and _2/_R2 for fq2.)'
         ),
         navOutputText("fastqDirText"),
         navOutputText("fq1Found"),
