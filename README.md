@@ -16,6 +16,8 @@ Click "Connect to shiny app"
 
 ## Using the app in 6 easy steps
 
+When started you will have an option to [Start New](#start-new) or [Already Exists](#already-exists)
+
 ### Start New
 
 #### Select Samplesheet
@@ -60,9 +62,9 @@ Pairwise comparisons between all levels of column group will be made by default.
 
 Click 'Start Snakemake RNAseq Workflow'
 
-From this tab you can monitor the workflow's progress or close the session and click 'Already exists' when you restart the app.
+From this tab you can monitor the workflow's progress or close the session and click 'Already Exists' when you restart the app.
 
-### Already exists
+### Already Exists
 
 #### Select an existing workflow
 
