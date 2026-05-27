@@ -26,10 +26,10 @@ cardHeight <<- '65vh'
 # Necessary Files here:
 # template <<- read_excel(paste0("Necessary Files/SampleTemplate.xlsx"), sheet = 1)
 # Root Dir for Folder Selection:
-rootDir <<- c('HPC Home' = file.path("/home",Sys.getenv("USER")), 
-              'Local Home' = "~",
-              "HPC Projects" = "/varidata/research/projects/", 
-              "HPC researchtemp" = "/varidata/researchtemp/hpctmp/"
+rootDir <<- c('HPC Home Directory' = file.path("/home",Sys.getenv("USER")), 
+              'Local Home Directory' = "~",
+              "HPC Lab Folders" = "/varidata/research/projects/", 
+              "HPC Temp Folder" = "/varidata/researchtemp/hpctmp/"
 )
 restrictDir <<- c("afs","bin","cloudstorage","cm","dev","etc","legacy","lib",
                   "lib64","localdisk","media","mnt","opt","proc","root","run",
@@ -57,19 +57,13 @@ ui <- UINav2(
             "Single",
             tooltipText = 'A minimum samplesheet includes two columns: \"sample\" & \"fastq\". Input file must have a .tsv (tab-separated values) extension.'
           ),
-          textOutput("sampleUploadText"),
-          textOutput("showUnitsTSV_Message"),
-          tableOutput("showUnitsTSV")
+          navOutputText("sampleUploadText"),
+          navOutputText("showUnitsTSV_Message"),
+          textOutput("showUnitsTSV_Message2", inline = FALSE) |> 
+            tagAppendAttributes(style = "font-size: 15px;"),
+          DTOutput("showUnitsTSV")
       )
     ),
-    
-    # nav_panel("step1",card( height = cardHeight,
-    #    navUpload("sampleUpload", "Select Samplesheet", "Single",tooltipText = 'A minimum samplesheet includes two columns: \"sample\" & \"fastq\". Input file must have a .tsv (tab-separated values) extension.'),
-    #     navOutputText("sampleUploadText"),
-    #     navOutputText("showUnitsTSV_Message"),
-    #     tableOutput("showUnitsTSV")
-    #   )
-    # ),
     nav_panel("step2",card( height = cardHeight,
         tooltip(
           shinyDirButton(
@@ -80,7 +74,8 @@ ui <- UINav2(
             class = "btn-default",
             style = "font-size: 1.5rem; padding: 0.75rem 1.5rem;"
           ),
-          'If fq[12] columns missing, then FASTQs are searched using the following regex\n paste0("^", sample, ".*_R?[12].*\\.(fastq|fq)\\.gz$$")'
+          # 'If fq[12] columns missing, then FASTQs are searched using the following regex\n paste0("^", sample, ".*_R?[12].*\\.(fastq|fq)\\.gz$$")'
+          'If fq1 and fq2 columns are missing from the samplesheet, then we will attempt to find them in the selected folder. FASTQ files MUST start with the sample name; end in fastq.gz or fq.gz; and have a _1 or _R1 to designate fq1 and _2/_R2 for fq2.)'
         ),
         navOutputText("fastqDirText"),
         navOutputText("fq1Found"),
@@ -240,24 +235,26 @@ server <- function(session, input, output) {
     fastqDir = NULL
   )
   
+  dt_samplesheet <- reactiveVal(NULL)
+  
   observe({
     # Deactivate buttons that need other things to function
     deactivateItems(
       c(
-        "fastqPathSelect",
-        "outputPathSelect",
-        "compileConfig",
-        "buildContrasts",
-        "editComparisons",
-        "downloadRepo",
-        "runWorkflow",
-        "checkStatus",
-        "printLogSTDOUT",
-        "printLogSTDERR",
-        "openLogSTDERR",
-        "openLogSTDOUT",
-        "downLoadFinalReport",
-        "openResults",
+        # "fastqPathSelect",
+        # "outputPathSelect",
+        # "compileConfig",
+        # "buildContrasts",
+        # "editComparisons",
+        # "downloadRepo",
+        # "runWorkflow",
+        # "checkStatus",
+        # "printLogSTDOUT",
+        # "printLogSTDERR",
+        # "openLogSTDERR",
+        # "openLogSTDOUT",
+        # "downLoadFinalReport",
+        # "openResults",
         # 
         "btn_next"
         # "btn_prev"
@@ -334,7 +331,7 @@ server <- function(session, input, output) {
       total = length(globals$tab_order),
       range_value = c(1,length(globals$tab_order))
     )
-    deactivateItems("btn_next")
+    # deactivateItems("btn_next")
   })
   
   observeEvent(input$btn_prev, {
@@ -410,25 +407,20 @@ server <- function(session, input, output) {
         df = df
       )
       globals$checks$sampleSheetCheck <- TRUE
-      globals$units <- build_units_TSV_output[['units']]
+      globals$units <- build_units_TSV_output[['units']] # saves the original, but dt_samplesheet() has any edits & should be used
       
       message <- build_units_TSV_output[['message']]
-      # message can be 1 of 3:
-      # genomicsLibTemplate
-      # autodetectEqTrue
-      # unitsComplete
       
-      # shinyalert(
-      #   title = "Samplesheet Uploaded!",
-      #   text  = paste(message,"\nGo to next\n\n"),
-      #   type  = "success",
-      #   closeOnClickOutside = TRUE
-      # )
-      
-      # messaging only if it works
+      message('samplesheet imported ...')
       output$sampleUploadText <- renderText({ paste('Loaded',file$name,"\n") })
       output$showUnitsTSV_Message <- renderText({ message })
-      output$showUnitsTSV <- renderTable({ build_units_TSV_output[['units']] })
+      output$showUnitsTSV_Message2 <- renderText({ 'Click on any cell to directly edit! Changes will be saved.' })
+      
+      message('class units ',class(build_units_TSV_output[['units']]))
+      message('dim units ',dim(build_units_TSV_output[['units']]))
+      dt_samplesheet(as.data.frame(build_units_TSV_output[['units']]))
+      message('class dt_samplesheet ',class(dt_samplesheet))
+      output$showUnitsTSV <- renderDT({ datatable(dt_samplesheet(), editable = "cell") })
       
     }, error = function(e) {
       showNotification(e$message, type = "error")
@@ -479,11 +471,12 @@ server <- function(session, input, output) {
       
       # check that FASTQs exist in fastqDir
       check_FASTQs_result <- check_FASTQs(
-        units = globals$units,
+        units = dt_samplesheet(),
         fastqDir = fastqDir
       )
-      globals$units <- check_FASTQs_result[['units']] # reset if fq1 and fq2 were added
-  
+      # globals$units <- check_FASTQs_result[['units']] # reset if fq1 and fq2 were added
+      dt_samplesheet(as.data.frame(check_FASTQs_result[['units']]))
+      
       if(check_FASTQs_result[['all_fq1_found']]==FALSE){
         shinyalert(
           title = "fq1 files missing!",
@@ -491,7 +484,7 @@ server <- function(session, input, output) {
           type  = "warning"
         )
         globals$checks$fastqFilesFound <- FALSE
-        output$fq1Found <- renderText({ paste0("Not all ",nrow(globals$units)," expected FASTQs from column fq1 of units.tsv were found in ",fastqDir,"\n") })
+        output$fq1Found <- renderText({ paste0("Not all ",nrow(dt_samplesheet())," expected FASTQs from column fq1 of units.tsv were found in ",fastqDir,"\n") })
       }
       if(check_FASTQs_result[['all_fq2_found']]==FALSE){
         shinyalert(
@@ -501,15 +494,15 @@ server <- function(session, input, output) {
           closeOnClickOutside = TRUE
         )
         globals$checks$fastqFilesFound <- FALSE
-        output$fq2Found <- renderText({ paste0("Not all ",nrow(globals$units)," expected FASTQs from column fq2 of units.tsv were found in ",fastqDir,"\n") })
+        output$fq2Found <- renderText({ paste0("Not all ",nrow(dt_samplesheet())," expected FASTQs from column fq2 of units.tsv were found in ",fastqDir,"\n") })
       }
       if(check_FASTQs_result[['all_fq2_found']]==TRUE & check_FASTQs_result[['all_fq1_found']]==TRUE){
         globals$checks$fastqFilesFound <- TRUE
         # get # of files
-        n <- nrow(globals$units)
+        n <- nrow(dt_samplesheet())
         output$fqFound <- renderText({ paste0("Found all ",n," expected FASTQs in ",fastqDir,"\n") })
         output$unitsTitle <- renderText({'units.tsv'})
-        output$showUnitsFastqStep <- renderTable({  globals$units })
+        output$showUnitsFastqStep <- renderTable({  dt_samplesheet() })
         shinyalert(
           title = "All FASTQ Files Found!",
           text  = paste0("Go to next"),
@@ -519,7 +512,7 @@ server <- function(session, input, output) {
       }else{
         # finish up error messags and print table for when not found
         output$unitsTitle <- renderText({'units.tsv'})
-        output$showUnitsFastqStep <- renderTable({  globals$units })
+        output$showUnitsFastqStep <- renderTable({  dt_samplesheet() })
       }
       
       # Check if 'Check Files and Folders' runnable
@@ -633,7 +626,7 @@ server <- function(session, input, output) {
     output$symLinkFastq <- renderText({ paste0("FASTQ files linked from ",fastqDir," into ",repoPath,"/raw_data/") })
     
     # write units.tsv
-    readr::write_delim(globals$units,file=file.path(repoPath,'config/samplesheet/units.tsv'),
+    readr::write_delim(dt_samplesheet(),file=file.path(repoPath,'config/samplesheet/units.tsv'),
     delim="\t",quote="none")
     output$wroteUnitsTSV <- renderText({ "units.tsv saved" })
     
@@ -705,7 +698,7 @@ server <- function(session, input, output) {
     repoPath <- globals$repoPath
     # pass 2 build_comparisons_TSV.R
     comparisons <- build_comparisons_TSV(
-      units = globals$units,
+      units = dt_samplesheet(),
       repoPath = repoPath
     )
     message('done with build_comparisons')
@@ -928,6 +921,24 @@ server <- function(session, input, output) {
       )
     }
   )
+  ## Edit DTtable ----
+  # Capture edits and update the data
+  observeEvent(input$showUnitsTSV_cell_edit, {
+    message('manual input ',input$showUnitsTSV_cell_edit)
+    info <- input$showUnitsTSV_cell_edit
+    
+    df <- dt_samplesheet()  
+    message('df is: ', class(df), ' | nrow: ', nrow(df))
+    req(!is.null(df))   # stop here if still NULL
+
+    df[info$row, info$col] <- info$value  # apply the edit directly
+    dt_samplesheet(df) # write back
+    # if units.tsv has been written, overwrite with any edits
+    if (globals$checks$gitCheck) {
+      message('writing edited units.tsv to disk')
+      readr::write_delim(dt_samplesheet(),file=file.path(globals$repoPath,'config/samplesheet/units.tsv'))
+    }
+  })
 }
 
 

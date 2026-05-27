@@ -157,6 +157,32 @@ zebrafish_GRCz11:
   # Choose which gene sets you would like to test against
   pathway_str: Reactome,BP,BP-simplified,KEGG,H,C1,C2,C3,C4,C5,C6,C7,C8
 
+rat_rn6:
+  ref:
+    index:          /varidata/research/projects/bbc/versioned_references/VERSION/data/rnor6_ensembl/indexes/star
+    salmon_index:   /varidata/research/projects/bbc/versioned_references/VERSION/data/rnor6_ensembl/indexes/salmon/rnor6_ensembl
+    annotation:     /varidata/research/projects/bbc/versioned_references/VERSION/data/rnor6_ensembl/annotation/rnor6_ensembl.gtf
+    dict: /varidata/research/projects/bbc/versioned_references/VERSION/data/rnor6_ensembl/sequence/rnor6_ensembl.dict
+    # Below used only for variant calling
+    snpeff_db_id:
+    known_snps:
+    known_indels: 
+    sequence: /varidata/research/projects/bbc/versioned_references/VERSION/data/rnor6_ensembl/sequence/rnor6_ensembl.fa
+    fai:  /varidata/research/projects/bbc/versioned_references/VERSION/data/rnor6_ensembl/sequence/rnor6_ensembl.fa.fai
+
+  # OrgDB R package for covnerting gene names. Common choices are 'org.Mm.eg.db' for mouse and 'org.Hs.eg.db' for human.
+  orgdb: org.Rn.eg.db
+
+  # For GSEA quick_ref can only handle human, mouse, rat, and fly; all other organisms need to be filled in manually
+  # kegg_org should be a three or four letter string corresponding to your reference species. List of KEGG species is found here: https://www.genome.jp/kegg/tables/br08606.html
+  kegg_org: rno
+  # reactome_org can be "human", "mouse", "rat", "celegans", "yeast", "zebrafish", "fly" 
+  reactome_org: rat
+  # Full species name. Applicable input strings can be found by installing the msigdbr library in R and using msigdbr::msigdbr_species()
+  msigdb_organism: Rattus norvegicus
+  # Choose which gene sets you would like to test against
+  pathway_str: Reactome,BP,BP-simplified,KEGG,H,C1,C2,C3,C4,C5,C6,C7,C8
+
 
 
 
