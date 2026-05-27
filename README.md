@@ -16,7 +16,7 @@ Click "Connect to shiny app"
 
 ## Using the app in 6 easy steps
 
-When started you will have an option to [Start New](#start-new) or [Already Exists](#already-exists)
+When started you will have an option to [Start New Test](#start-new) or [Already Exists](#already-exists)
 
 ### Start New
 
