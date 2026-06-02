@@ -47,7 +47,14 @@ ui <- UINav2(
   navset_hidden(
     id = "main_tabs",
     
-    nav_panel("step1", card( height = cardHeight,
+    nav_panel("step1", 
+      card( height = cardHeight,
+        layout_sidebar( sidebar = sidebar(position = "right",
+          navOutputText("sampleUploadText"),
+          navOutputText("showUnitsTSV_Message"),
+          textOutput("showUnitsTSV_Message2", inline = FALSE) |> 
+            tagAppendAttributes(style = "font-size: 15px;")
+        ),
           navUpload(
             "sampleUpload",
             tagList(
@@ -57,139 +64,172 @@ ui <- UINav2(
             "Single",
             tooltipText = 'The samplesheet must include two columns: \"sample\" & \"group\". The group column designates sample groups to be compared during the differential expression workflow. Columns named \"fq1\" and \"fq2\" designate the input fastq file names. These columns are needed for the workflow, but optional; if they are not included, an attempt to find the FASTQ files will be made after a FASTQ folder is selected (next tab). Input file must have a .tsv (tab-separated values) or .csv (comma-separated values) extension.'
           ),
-          navOutputText("sampleUploadText"),
-          navOutputText("showUnitsTSV_Message"),
-          textOutput("showUnitsTSV_Message2", inline = FALSE) |> 
-            tagAppendAttributes(style = "font-size: 15px;"),
           DTOutput("showUnitsTSV")
+        )
       )
     ),
-    nav_panel("step2",card( height = cardHeight,
-        tooltip(
-          shinyDirButton(
-            id    = "fastqPathSelect",
-            label = "Select folder with FASTQ files",
-            title = "Select folder with FASTQ files",
-            icon  = bsicons::bs_icon("folder-plus", size = "1.5em"),
-            class = "btn-default",
-            style = "font-size: 1.5rem; padding: 0.75rem 1.5rem;"
-          ),
-          # 'If fq[12] columns missing, then FASTQs are searched using the following regex\n paste0("^", sample, ".*_R?[12].*\\.(fastq|fq)\\.gz$$")'
-          'If fq1 and fq2 columns are missing from the samplesheet, then an attempt to find them in the selected folder is made. To be found, FASTQ files MUST start with the sample name; end in fastq.gz or fq.gz; and have a _1 or _R1 to designate fq1 and _2/_R2 for fq2.)'
+    nav_panel("step2",
+      card( height = cardHeight,
+        layout_sidebar( sidebar = sidebar(position = "right",
+          navButton("showSampleSheet2","Show Sample Sheet"),
+          navOutputText("fastqDirText"),
+          navOutputText("fq1Found"),
+          navOutputText("fq2Found"),
+          navOutputText("unitsTitle")
         ),
-        navOutputText("fastqDirText"),
-        navOutputText("fq1Found"),
-        navOutputText("fq2Found"),
-        navOutputText("unitsTitle"),
-        tableOutput("showUnitsFastqStep")
+          tooltip(
+            shinyDirButton(
+              id    = "fastqPathSelect",
+              label = "Select folder with FASTQ files",
+              title = "Select folder with FASTQ files",
+              icon  = bsicons::bs_icon("folder-plus", size = "1.5em"),
+              class = "btn-default",
+              style = "font-size: 1.5rem; padding: 0.75rem 1.5rem;"
+            ),
+            # 'If fq[12] columns missing, then FASTQs are searched using the following regex\n paste0("^", sample, ".*_R?[12].*\\.(fastq|fq)\\.gz$$")'
+            'If fq1 and fq2 columns are missing from the samplesheet, then an attempt to find them in the selected folder is made. To be found, FASTQ files MUST start with the sample name; end in fastq.gz or fq.gz; and have a _1 or _R1 to designate fq1 and _2/_R2 for fq2.)'
+          ),
+          tableOutput("showUnitsFastqStep")
+        )
       ),
     ),
-    nav_panel("step3",card( height = cardHeight,
-        shinyDirButton(
-          id    = "outputPathSelect",
-          label = "Please select a folder to run the analysis",
-          title = "Please select a folder to run the analysis",
-          icon  = bsicons::bs_icon("folder-plus", size = "1.5em"),
-          class = "btn-default",
-          style = "font-size: 1.5rem; padding: 0.75rem 1.5rem;"
-        ),
-        navOutputText("outputErrorText"),
-        navOutputText("outputErrorText2"),
-        actionButton("downloadRepo",  tagList(
-            bsicons::bs_icon("cloud-download", size = "1.5em"),
-            tags$span("Download Snakemake workflow from github", style = "font-size: 1.4rem; vertical-align: middle;")
+    nav_panel("step3",
+      card( height = cardHeight,
+        layout_sidebar(
+          sidebar = sidebar(position = "right",
+            navButton("showSampleSheet3","Show Sample Sheet"),
+            navOutputText("outputErrorText"),
+            navOutputText("outputErrorText2"),
+            navOutputText("gitCloneMessage"),
+            navOutputText("symLinkFastq"),
+            navOutputText("wroteUnitsTSV")
+          ),
+          div(
+            shinyDirButton(
+              id    = "outputPathSelect",
+              label = "Please select a folder to run the analysis",
+              title = "Please select a folder to run the analysis",
+              icon  = bsicons::bs_icon("folder-plus", size = "1.5em"),
+              class = "btn-default",
+              style = "font-size: 1.5rem; padding: 0.75rem 1.5rem;"
+            ),
+            actionButton("downloadRepo",  tagList(
+                bsicons::bs_icon("cloud-download", size = "1.5em"),
+                tags$span("Download Snakemake workflow from github", style = "font-size: 1.4rem; vertical-align: middle;")
+              )
+            )
           )
-        ),
-        navOutputText("gitCloneMessage"),
-        navOutputText("symLinkFastq"),
-        navOutputText("wroteUnitsTSV")
+        )
       ),
     ),
     nav_panel("step4",card( height = cardHeight,
-        navSelect("refVersions", "Reference Version", "Single", "Locked", 
-                  theChoices = refVersionChoices),
-        navSelect("speciesSelect","Select the Species & Annotation", "Single", "Locked",
-                  theChoices = speciesSelectChoices),
-        navNumeric("fdrCutoff","False discover rate", 0.01, tooltipText = "Default: 0.01",min=0,max=1),
-        navSelect("pairedSingle","Paired-end or single-end genomics library", "Single", "Locked",
-                  theChoices = c("Paired End","Single End")),
-        navCheckbox("visBigWig","Run VisBigWig", "True"),
-        navCheckbox("rSeqC","Run rSeqC", "True"),
-        actionButton("compileConfig",  tagList(
-            bsicons::bs_icon("save", size = "1.5em"),
-            tags$span("Save Settings", style = "font-size: 1.4rem; vertical-align: middle;")
-          )
-        ),
-        hr(),
+        layout_sidebar(
+          sidebar = sidebar(position = "right",
+            navButton("showSampleSheet4","Show Sample Sheet"),
+            p("Choose the reference, species, and analysis settings before saving the config file.")
+          ),
+          navSelect("refVersions", "Reference Version", "Single", "Locked", 
+                    theChoices = refVersionChoices),
+          navSelect("speciesSelect","Select the Species & Annotation", "Single", "Locked",
+                    theChoices = speciesSelectChoices),
+          navNumeric("fdrCutoff","False discover rate", 0.01, tooltipText = "Default: 0.01",min=0,max=1),
+          navSelect("pairedSingle","Paired-end or single-end genomics library", "Single", "Locked",
+                    theChoices = c("Paired End","Single End")),
+          navCheckbox("visBigWig","Run VisBigWig", "True"),
+          navCheckbox("rSeqC","Run rSeqC", "True"),
+          actionButton("compileConfig",  tagList(
+              bsicons::bs_icon("save", size = "1.5em"),
+              tags$span("Save Settings", style = "font-size: 1.4rem; vertical-align: middle;")
+            )
+          ),
+          hr()
+        )
       ),
     ), 
     nav_panel("step5",card( height = cardHeight,
-        fluidRow(
-          column(12,
-           # p("'comparisons.tsv' is used to run differential expression contrasts in the RNAseq workflow."),
-           # p("From the column group, we have identified the following available contrasts."),
-           p("We are working to build more options. For now, contact bbc@vai.org for help building more complicated comparisons.")
+        layout_sidebar(
+          sidebar = sidebar(position = "right",
+            navButton("showSampleSheet5","Show Sample Sheet"),
+            navOutputText("contrastsInfo1"),
+            verbatimTextOutput("filepath"),
+            p("We are working to build more options. For now, contact bbc@vai.org for help building more complicated comparisons.")
+          ),
+          div(
+            actionButton("buildContrasts",tagList(
+                bsicons::bs_icon("rocket-takeoff", size = "1.5em"),
+                tags$span("Build differential expression comparisons from column \'group\'", style = "font-size: 1.4rem; vertical-align: middle;")
+              )
+            ),
+            tableOutput("contrastsTableOutput"),
+            actionButton("editComparisons", "Optional: directly edit comparisons")
           )
-        ),
-        actionButton("buildContrasts",tagList(
-            bsicons::bs_icon("rocket-takeoff", size = "1.5em"),
-            tags$span("Build differential expression comparisons from column \'group\'", style = "font-size: 1.4rem; vertical-align: middle;")
-          )
-        ),
-        navOutputText("contrastsInfo1"),
-        tableOutput("contrastsTableOutput"),
-        actionButton("editComparisons", "Optional: directly edit comparisons"),
-        verbatimTextOutput("filepath")
+        )
       ),
     ),
     nav_panel('step6',card( height = cardHeight,
-        actionButton("runWorkflow",tagList(
-            bsicons::bs_icon("bar-chart-line", size = "2em"),
-            tags$span("Start Snakemake RNAseq Workflow", style = "font-size: 1.6rem; vertical-align: left;")
+        layout_sidebar(
+          sidebar = sidebar(position = "right",
+            navOutputText("workflowStarted"),
+            verbatimTextOutput("job_status"),
+            navOutputText("errorFilesEmail"),
+            verbatimTextOutput("job_status_refresh0"),
+            verbatimTextOutput("openLogSTDOUTMessage0"),
+            verbatimTextOutput("openLogSTDOUTContent0"),
+            verbatimTextOutput("openLogSTDERRMessage0"),
+            verbatimTextOutput("openLogSTDERRContent0")
+          ),
+          actionButton("runWorkflow",tagList(
+              bsicons::bs_icon("bar-chart-line", size = "2em"),
+              tags$span("Start Snakemake RNAseq Workflow", style = "font-size: 1.6rem; vertical-align: left;")
+            )
+          ),
+          actionButton("checkStatus","Click here to refresh job status"),
+          actionButton("printLogSTDOUT","Display Snakemake log (STDOUT) file"),
+          actionButton("printLogSTDERR","Display Snakemake error (STDERR) file"),
+          actionButton("openResults","Open the results folder"),
+          actionButton("openLogSTDOUT","Open Snakemake log (STDOUT) file"),
+          actionButton("openLogSTDERR","Open the Snakemake error (STDERR) file"),
+          downloadButton("downLoadFinalReport", "Download Results")
+        )
+      )
+    ),
+    nav_panel("stepb1",
+      card( height = cardHeight,
+        layout_sidebar(
+          sidebar = sidebar(position = "right",
+            verbatimTextOutput("chosenExistingDirText")
+          ),
+          div(
+            shinyDirButton(
+              id    = "selectExistingWorkflow",
+              label = "Select an existing workflow",
+              title = "Select an existing workflow",
+              icon  = bsicons::bs_icon("folder-plus", size = "1.5em"),
+              class = "btn-default",
+              style = "font-size: 1.5rem; padding: 0.75rem 1.5rem;"
+            )
           )
-        ),
-        navOutputText("workflowStarted"),
-        verbatimTextOutput("job_status"),
-        navOutputText("errorFilesEmail"),
-        actionButton("checkStatus","Click here to refresh job status"),
-        verbatimTextOutput("job_status_refresh0"),
-        actionButton("printLogSTDOUT","Display Snakemake log (STDOUT) file"),
-        verbatimTextOutput("openLogSTDOUTMessage0"),
-        verbatimTextOutput("openLogSTDOUTContent0"),
-        actionButton("printLogSTDERR","Display Snakemake error (STDERR) file"),
-        verbatimTextOutput("openLogSTDERRMessage0"),
-        verbatimTextOutput("openLogSTDERRContent0"),
-        actionButton("openResults","Open the results folder"),
-        actionButton("openLogSTDOUT","Open Snakemake log (STDOUT) file"),
-        actionButton("openLogSTDERR","Open the Snakemake error (STDERR) file"),
-        downloadButton("downLoadFinalReport", "Download Results")
+        )
       )
     ),
-    nav_panel("stepb1",card( height = cardHeight,
-         shinyDirButton(
-           id    = "selectExistingWorkflow",
-           label = "Select an existing workflow",
-           title = "Select an existing workflow",
-           icon  = bsicons::bs_icon("folder-plus", size = "1.5em"),
-           class = "btn-default",
-           style = "font-size: 1.5rem; padding: 0.75rem 1.5rem;"
-         ),
-        verbatimTextOutput("chosenExistingDirText")
-      )
-    ),
-    nav_panel('stepb2',card( height = cardHeight,
-         actionButton("checkStatus2","Click here to refresh job status"),
-         verbatimTextOutput("job_status_refresh"),
-         actionButton("printLogSTDOUT","Display Snakemake log (STDOUT) file"),
-         verbatimTextOutput("openLogSTDOUTMessage"),
-         verbatimTextOutput("openLogSTDOUTContent"),
-         actionButton("printLogSTDERR","Display Snakemake error (STDERR) file"),
-         verbatimTextOutput("openLogSTDERRMessage"),
-         verbatimTextOutput("openLogSTDERRContent"),
-         actionButton("openResults","Open the results folder"),
-         actionButton("openLogSTDOUT","Open Snakemake log (STDOUT) file"),
-         actionButton("openLogSTDERR","Open the Snakemake error (STDERR) file"),
-         downloadButton("downLoadFinalReport", "Download Report") #|> shinyjs::disabled()
+    nav_panel('stepb2',
+      card( height = cardHeight,
+        layout_sidebar(
+          sidebar = sidebar(position = "right",
+            verbatimTextOutput("job_status_refresh"),
+            verbatimTextOutput("openLogSTDOUTMessage"),
+            verbatimTextOutput("openLogSTDOUTContent"),
+            verbatimTextOutput("openLogSTDERRMessage"),
+            verbatimTextOutput("openLogSTDERRContent")
+          ),
+          actionButton("checkStatus2","Click here to refresh job status"),
+          actionButton("printLogSTDOUT","Display Snakemake log (STDOUT) file"),
+          actionButton("printLogSTDERR","Display Snakemake error (STDERR) file"),
+          actionButton("openResults","Open the results folder"),
+          actionButton("openLogSTDOUT","Open Snakemake log (STDOUT) file"),
+          actionButton("openLogSTDERR","Open the Snakemake error (STDERR) file"),
+          downloadButton("downLoadFinalReport", "Download Report") #|> shinyjs::disabled()
+        )
       )
     )
   ),
@@ -236,6 +276,52 @@ server <- function(session, input, output) {
   )
   
   dt_samplesheet <- reactiveVal(NULL)
+  
+  # Render the table 
+  output$sampleSheet <- renderDT({
+    dt_samplesheet()
+  })
+
+  # Trigger the psample sheet popup
+  observeEvent(input$showSampleSheet2, {
+    showModal(modalDialog(
+      title = "Sample Sheet",
+      DTOutput("sampleSheet"),
+      easyClose = TRUE,
+      size = "xl",
+      footer = modalButton("Close")
+    ))
+  })
+  
+  observeEvent(input$showSampleSheet3, {
+    showModal(modalDialog(
+      title = "Sample Sheet",
+      DTOutput("sampleSheet"),
+      easyClose = TRUE,
+      size = "xl",
+      footer = modalButton("Close")
+    ))
+  })
+
+  observeEvent(input$showSampleSheet4, {
+    showModal(modalDialog(
+      title = "Sample Sheet",
+      DTOutput("sampleSheet"),
+      easyClose = TRUE,
+      size = "xl",
+      footer = modalButton("Close")
+    ))
+  })
+  
+  observeEvent(input$showSampleSheet5, {
+    showModal(modalDialog(
+      title = "Sample Sheet",
+      DTOutput("sampleSheet"),
+      easyClose = TRUE,
+      size = "xl",
+      footer = modalButton("Close")
+    ))
+  })
   
   observe({
     # Deactivate buttons that need other things to function
