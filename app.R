@@ -111,12 +111,13 @@ ui <- UINav2(
               title = "Please select a folder to run the analysis",
               icon  = bsicons::bs_icon("folder-plus", size = "1.5em"),
               class = "btn-default",
-              style = "font-size: 1.5rem; padding: 0.75rem 1.5rem;"
+              style = "font-size: 1.5rem; padding: 0.75rem 1.5rem; width: 100%;"
             ),
             actionButton("downloadRepo",  tagList(
                 bsicons::bs_icon("cloud-download", size = "1.5em"),
-                tags$span("Download Snakemake workflow from github", style = "font-size: 1.4rem; vertical-align: middle;")
-              )
+                tags$span("Download Snakemake workflow from github", 
+                          style = "font-size: 1.5rem; vertical-align: middle;")
+              ), width = "100%"
             )
           )
         )
