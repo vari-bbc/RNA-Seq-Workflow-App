@@ -315,6 +315,7 @@ UINav2 <- function(..., header = NULL, footer = NULL, logoFile = "") {
       navItem(tags$a(
         href = "https://github.com/vari-bbc/RNA-Seq-Workflow-App",
         target = "_blank",
+        style = "color: white;",
         h3(appName)
       )),
       nav_spacer(),
