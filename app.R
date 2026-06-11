@@ -21,7 +21,7 @@ refVersionChoices <- c("latest","2026-02-12_15.29.54_v23","2025-12-18_22.42.45_v
 speciesSelectChoices <- c("human_hg38_gencode","mouse_mm10_gencode","mouse_mm39_gencode","worm_c.elegans-WBcel235","fly_dm6_BDGP6.28.100", "zebrafish_GRCz11")
 ## 3.0 Universal Vars ----fr
 # App Name here:
-appName <<- "RNAseq Workflow Starter"
+appName <<- "BBC RNAseq App"
 cardHeight <<- '65vh'
 # Necessary Files here:
 # template <<- read_excel(paste0("Necessary Files/SampleTemplate.xlsx"), sheet = 1)
@@ -55,7 +55,7 @@ ui <- UINav2(
               tags$span("Select Samplesheet", style = "font-size: 1.4rem; vertical-align: middle;")
             ),
             "Single",
-            tooltipText = 'The samplesheet must include two columns: \"sample\" & \"group\". The group column designates sample groups to be compared during the differential expression workflow. Columns named \"fq1\" and \"fq2\" designate the input fastq file names. These columns are needed for the workflow, but optional; if they are not included, an attempt to find the FASTQ files will be made after a FASTQ folder is selected (next tab). Input file must have a .tsv (tab-separated values) or .csv (comma-separated values) extension.'
+            tooltipText = 'The samplesheet must include two columns: \"sample\" & \"group\". The group column designates sample groups to be compared during the differential expression workflow. Columns named \"fq1\" and \"fq2\" designate the input fastq file names. These columns are needed for the workflow, but optional here; if they are not included, an attempt to find the FASTQ files will be made after a FASTQ folder is selected (next tab). Input file must have a .tsv (tab-separated values) or .csv (comma-separated values) extension.'
           ),
           navOutputText("sampleUploadText"),
           navOutputText("showUnitsTSV_Message"),
@@ -75,7 +75,7 @@ ui <- UINav2(
             style = "font-size: 1.5rem; padding: 0.75rem 1.5rem;"
           ),
           # 'If fq[12] columns missing, then FASTQs are searched using the following regex\n paste0("^", sample, ".*_R?[12].*\\.(fastq|fq)\\.gz$$")'
-          'If fq1 and fq2 columns are missing from the samplesheet, then an attempt to find them in the selected folder is made. To be found, FASTQ files MUST start with the sample name; end in fastq.gz or fq.gz; and have a _1 or _R1 to designate fq1 and _2/_R2 for fq2.)'
+          'If fq1 and fq2 columns are missing from the samplesheet,  then an attempt is made to associate samples to files in the selected folder. To be found, FASTQ files MUST start with the sample name followed by an underscore; end in fastq.gz or fq.gz; and have a _1 or _R1 to designate fq1 and _2/_R2 for fq2.)'
         ),
         navOutputText("fastqDirText"),
         navOutputText("fq1Found"),
@@ -87,8 +87,8 @@ ui <- UINav2(
     nav_panel("step3",card( height = cardHeight,
         shinyDirButton(
           id    = "outputPathSelect",
-          label = "Please select a folder to run the analysis",
-          title = "Please select a folder to run the analysis",
+          label = "Select a folder to run the analysis",
+          title = "Select a folder to run the analysis",
           icon  = bsicons::bs_icon("folder-plus", size = "1.5em"),
           class = "btn-default",
           style = "font-size: 1.5rem; padding: 0.75rem 1.5rem;"
@@ -145,7 +145,7 @@ ui <- UINav2(
     nav_panel('step6',card( height = cardHeight,
         actionButton("runWorkflow",tagList(
             bsicons::bs_icon("bar-chart-line", size = "2em"),
-            tags$span("Start Snakemake RNAseq Workflow", style = "font-size: 1.6rem; vertical-align: left;")
+            tags$span("Start Workflow", style = "font-size: 1.6rem; vertical-align: left;")
           )
         ),
         navOutputText("workflowStarted"),
@@ -877,7 +877,9 @@ server <- function(session, input, output) {
     if (basename(outputDir) != "rnaseq_workflow") {
       warning(paste(outputDir," is not the rnaseq_workflow repo ... "))
       # check if rnaseq_workflow exists in selected directory
-      if("rnaseq_workflow" %in% list.files(outputDir)){
+      if("rnaseq_workflow" %in% list.files(outputDir) && 
+         "app.yaml" %in% list.files(file.path(outputDir, "rnaseq_workflow")) 
+      ){
         message(paste("Found an rnaseq_workflow directory in ",outputDir," ... using that ..."))
         globals$repoPath <- file.path(outputDir,'rnaseq_workflow')
         output$chosenExistingDirText <- renderText({ paste('Selected workflow folder:',globals$repoPath,"\n")  })
@@ -887,7 +889,7 @@ server <- function(session, input, output) {
       }else{
         # couldn't be found
         shinyalert(
-          title = paste0("Could not identify rnaseq_workflow folder in ",outputDir,"!"),
+          title = paste0("Could not identify an app-generated rnaseq_workflow folder in ",outputDir,"!"),
           text  = paste("\n\n","Please contact bbc@vai.org with questions"),
           type  = "error"
         )

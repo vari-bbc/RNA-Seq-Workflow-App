@@ -54,7 +54,7 @@ check_FASTQs <- function(
 
     find_sample_files <- function(sample, files) {
       # Match any file whose basename starts with sample name + known suffix
-      pattern <- paste0("^", sample, ".*_R?[12].*\\.(fastq|fq)\\.gz$")
+      pattern <- paste0("^", sample, "_.*_R?[12].*\\.(fastq|fq)\\.gz$")
       matched <- files[grepl(pattern, basename(files))]
       message('for sample ',sample)
       message('matched',matched)
