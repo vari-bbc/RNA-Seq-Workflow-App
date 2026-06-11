@@ -46,7 +46,6 @@ ui <- UINav2(
   progressBar(id = "workflow_progress", value = 1, total = 1, display_pct = FALSE),
   navset_hidden(
     id = "main_tabs",
-    
     nav_panel("step1", 
       card( height = cardHeight,
         layout_sidebar( sidebar = sidebar(position = "right",
@@ -68,18 +67,6 @@ ui <- UINav2(
         )
       )
     ),
-    nav_panel("step2",card( height = cardHeight,
-        tooltip(
-          shinyDirButton(
-            id    = "fastqPathSelect",
-            label = "Select folder with FASTQ files",
-            title = "Select folder with FASTQ files",
-            icon  = bsicons::bs_icon("folder-plus", size = "1.5em"),
-            class = "btn-default",
-            style = "font-size: 1.5rem; padding: 0.75rem 1.5rem;"
-          ),
-          # 'If fq[12] columns missing, then FASTQs are searched using the following regex\n paste0("^", sample, ".*_R?[12].*\\.(fastq|fq)\\.gz$$")'
-          'If fq1 and fq2 columns are missing from the samplesheet,  then an attempt is made to associate samples to files in the selected folder. To be found, FASTQ files MUST start with the sample name followed by an underscore; end in fastq.gz or fq.gz; and have a _1 or _R1 to designate fq1 and _2/_R2 for fq2.)'
     nav_panel("step2",
       card( height = cardHeight,
         layout_sidebar( sidebar = sidebar(position = "right",
@@ -99,7 +86,7 @@ ui <- UINav2(
               style = "font-size: 1.5rem; padding: 0.75rem 1.5rem;"
             ),
             # 'If fq[12] columns missing, then FASTQs are searched using the following regex\n paste0("^", sample, ".*_R?[12].*\\.(fastq|fq)\\.gz$$")'
-            'If fq1 and fq2 columns are missing from the samplesheet, then an attempt to find them in the selected folder is made. To be found, FASTQ files MUST start with the sample name; end in fastq.gz or fq.gz; and have a _1 or _R1 to designate fq1 and _2/_R2 for fq2.)'
+            'If fq1 and fq2 columns are missing from the samplesheet,  then an attempt is made to associate samples to files in the selected folder. To be found, FASTQ files MUST start with the sample name followed by an underscore; end in fastq.gz or fq.gz; and have a _1 or _R1 to designate fq1 and _2/_R2 for fq2.)'
           ),
           tableOutput("showUnitsFastqStep")
         )
@@ -117,6 +104,7 @@ ui <- UINav2(
             navOutputText("wroteUnitsTSV")
           ),
           div(
+            style = "display: flex; flex-direction: column; gap: 2rem;",
             shinyDirButton(
               id    = "outputPathSelect",
               label = "Please select a folder to run the analysis",
@@ -174,7 +162,7 @@ ui <- UINav2(
               )
             ),
             tableOutput("contrastsTableOutput"),
-            actionButton("editComparisons", "Optional: directly edit comparisons")
+            # actionButton("editComparisons", "Optional: directly edit comparisons")
           )
         )
       ),
@@ -821,13 +809,12 @@ server <- function(session, input, output) {
     
   })
   
-  # 5.2 Edit Comparisons ----
-  observeEvent(input$editComparisons, {
-    path <- file.path("https://ondemand1.vai.zone/pun/sys/dashboard/files/edit/fs/", globals$repoPath, 'config/samplesheet/comparisons.tsv')
-    message('editComparisons path: ', path)
-    runjs(paste0("window.open('", path, "', '_blank');"))
-  })
-  
+  # # 5.2 Edit Comparisons ----
+  # observeEvent(input$editComparisons, {
+  #   path <- file.path("https://ondemand1.vai.zone/pun/sys/dashboard/files/edit/fs/", globals$repoPath, 'config/samplesheet/comparisons.tsv')
+  #   message('editComparisons path: ', path)
+  #   runjs(paste0("window.open('", path, "', '_blank');"))
+  # })
   
   ## 6.1 Run Snakemake Workflow ----
   observeEvent(input$runWorkflow, {
