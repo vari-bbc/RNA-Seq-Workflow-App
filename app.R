@@ -4,7 +4,7 @@
 if (!require("pacman", quietly = TRUE))
     install.packages("pacman", repos = "https://cloud.r-project.org")
 
-
+testing <- 0
 ## 1.0 Load Libraries ----
 # change back to individual loads
 pacman::p_load(shiny,bslib,shinyjs,shinyWidgets,bsicons,plotly,DT,readr,
@@ -280,9 +280,9 @@ server <- function(session, input, output) {
   
   # Render the table 
   output$sampleSheet <- renderDT({
-    dt_samplesheet()
+    datatable(dt_samplesheet(), editable = "cell")
   })
-
+  
   # Trigger the psample sheet popup
   observeEvent(input$showSampleSheet2, {
     showModal(modalDialog(
@@ -326,27 +326,29 @@ server <- function(session, input, output) {
   
   observe({
     # Deactivate buttons that need other things to function
-    deactivateItems(
-      c(
-        # "fastqPathSelect",
-        # "outputPathSelect",
-        # "compileConfig",
-        # "buildContrasts",
-        # "editComparisons",
-        # "downloadRepo",
-        # "runWorkflow",
-        # "checkStatus",
-        # "printLogSTDOUT",
-        # "printLogSTDERR",
-        # "openLogSTDERR",
-        # "openLogSTDOUT",
-        # "downLoadFinalReport",
-        # "openResults",
-        # 
-        "btn_next"
-        # "btn_prev"
+    if(!testing){
+      deactivateItems(
+        c(
+          "fastqPathSelect",
+          "outputPathSelect",
+          "compileConfig",
+          "buildContrasts",
+          "editComparisons",
+          "downloadRepo",
+          "runWorkflow",
+          "checkStatus",
+          "printLogSTDOUT",
+          "printLogSTDERR",
+          "openLogSTDERR",
+          "openLogSTDOUT",
+          "downLoadFinalReport",
+          "openResults",
+          # 
+          "btn_next",
+          "btn_prev"
+        )
       )
-    )
+    }
   })
   
   ## 0.1.2 Modals ----
@@ -408,6 +410,7 @@ server <- function(session, input, output) {
   
   observeEvent(input$btn_next, {
     globals$current_index <- min(globals$current_index + 1, length(globals$tab_order))
+    selected_tab <- globals$tab_order[globals$current_index]
     message('globals$current_index',globals$current_index)
     nav_select("main_tabs", selected = globals$tab_order[globals$current_index])
     # stop users from going to next until action taken
@@ -418,7 +421,14 @@ server <- function(session, input, output) {
       total = length(globals$tab_order),
       range_value = c(1,length(globals$tab_order))
     )
-    # deactivateItems("btn_next")
+    
+    # if (selected_tab == 'step5') { # so this is if you clicked NEXT on step4, compileConfig tab
+    #   message('shinyjs::click(compileConfig) -- going to next ...')
+    #   shinyjs::click("compileConfig")
+    # }
+    
+    if(!testing){deactivateItems("btn_next")}
+    # if(selected_tab == 'step4'){activateItems("btn_next")} # if you are on step4, option to click next and save
   })
   
   observeEvent(input$btn_prev, {
@@ -544,7 +554,7 @@ server <- function(session, input, output) {
       is_readable <- file.access(fastqDir, mode = 4) == 0
       warning("is_readable: ",is_readable)
       if(is_readable == TRUE){
-        output$fastqDirText <- renderText({ paste0("The selected input directory is: ",fastqDir) })
+        output$fastqDirText <- renderText({ paste0("FASTQ directory: ",fastqDir) })
       }else{
         shinyalert(
           title = "Selected FASTQ Directory Not Readable",
@@ -561,45 +571,71 @@ server <- function(session, input, output) {
         units = dt_samplesheet(),
         fastqDir = fastqDir
       )
-      # globals$units <- check_FASTQs_result[['units']] # reset if fq1 and fq2 were added
+      # reset dt_samplesheet() with any FASTQ information
       dt_samplesheet(as.data.frame(check_FASTQs_result[['units']]))
+      
+      missing_fq1 <- check_FASTQs_result[['missing_fq1']]
+      missing_fq2 <- check_FASTQs_result[['missing_fq2']]
+      
       
       if(check_FASTQs_result[['all_fq1_found']]==FALSE){
         shinyalert(
           title = "fq1 files missing!",
-          text  = paste0("Not all read 1 FASTQs from fq1 column of units.tsv were found in ",fastqDir,"."),
+          text  = paste0("Not all read 1 FASTQs from samplesheet fq1 column were found in ",fastqDir,"."),
           type  = "warning"
         )
         globals$checks$fastqFilesFound <- FALSE
-        output$fq1Found <- renderText({ paste0("Not all ",nrow(dt_samplesheet())," expected FASTQs from column fq1 of units.tsv were found in ",fastqDir,"\n") })
+        output$fq1Found <- renderText({ 
+            paste(
+              paste0(length(missing_fq1)," of ",nrow(dt_samplesheet()),
+                   " FASTQs from column fq1 NOT FOUND:\n"),
+              paste(missing_fq1,collapse="\n"),
+              sep="\n"
+            )
+        })
+      }else{
+        output$fq1Found <- renderText({''}) # no message needed
       }
       if(check_FASTQs_result[['all_fq2_found']]==FALSE){
         shinyalert(
           title = "fq2 files missing!",
-          text  = paste0("Not all read 2 FASTQs from fq2 column of units.tsv were found in ",fastqDir,"."),
+          text  = paste0("Not all read 2 FASTQs from samplesheet fq2 column  were found in ",fastqDir,"."),
           type  = "warning",
           closeOnClickOutside = TRUE
         )
         globals$checks$fastqFilesFound <- FALSE
-        output$fq2Found <- renderText({ paste0("Not all ",nrow(dt_samplesheet())," expected FASTQs from column fq2 of units.tsv were found in ",fastqDir,"\n") })
+        output$fq2Found <- renderText({ 
+          paste(
+            paste0(length(missing_fq2)," of ",nrow(dt_samplesheet()),
+                   " FASTQs from column fq1 NOT FOUND:\n"),
+            paste(missing_fq2,collapse="\n"),
+            sep="\n"
+          )
+        })      
+      }else{
+        output$fq2Found <- renderText({''}) # no message needed
       }
       if(check_FASTQs_result[['all_fq2_found']]==TRUE & check_FASTQs_result[['all_fq1_found']]==TRUE){
         globals$checks$fastqFilesFound <- TRUE
-        # get # of files
         n <- nrow(dt_samplesheet())
-        output$fqFound <- renderText({ paste0("Found all ",n," expected FASTQs in ",fastqDir,"\n") })
-        output$unitsTitle <- renderText({'units.tsv'})
+        output$fqFound <- renderText({ paste0("FASTQs for all ",n," samples found.\n") })
+        
         output$showUnitsFastqStep <- renderTable({  dt_samplesheet() })
         shinyalert(
-          title = "All FASTQ Files Found!",
+          title = "All samples FASTQ files found!",
           text  = paste0("Go to next"),
           type  = "success",
           closeOnClickOutside = TRUE
         )
-      }else{
-        # finish up error messags and print table for when not found
-        output$unitsTitle <- renderText({'units.tsv'})
-        output$showUnitsFastqStep <- renderTable({  dt_samplesheet() })
+        output$unitsTitle <- renderText({''}) # no message needed
+      }else{ 
+        # finish up error messages and print table for when not found
+        # output$unitsTitle <- renderText({'units.tsv'})
+        # render the table only for samples with missing data
+        # get index of dt_samplesheet() missing
+        output$unitsTitle <- renderText({'To continute, fix FASTQ and sample names discrepancies & reselect folder with FASTQ files. Samples with problems are shown in the table.'})
+        
+        output$showUnitsFastqStep <- renderTable({  check_FASTQs_result[['units_missing']] })
       }
       
       # Check if 'Check Files and Folders' runnable
@@ -655,6 +691,7 @@ server <- function(session, input, output) {
     
     if (globals$checks$fastqFilesFound & globals$checks$outputDirCheck){
       activateItems(c("downloadRepo"))
+      output$outputErrorText <- renderText({ paste0('Selected directory: ',outputDir,"\n") })
       output$outputErrorText2 <- renderText({ 'You can now download the workflow!' })
       deactivateItems(c("sampleUpload","fastqPathSelect","outputPathSelect"))
     }
@@ -662,6 +699,7 @@ server <- function(session, input, output) {
   
   ## 3.2 download repo, ln -s .fq, write units.tsv ----
   observeEvent(input$downloadRepo, {
+    deactivateItems('downloadRepo') # disable double clicking
     startSection("Download github repo")
     
     # == Inputs
@@ -1009,7 +1047,7 @@ server <- function(session, input, output) {
       )
     }
   )
-  ## Edit DTtable ----
+  ## Edit DTtable(s) ----
   # Capture edits and update the data
   observeEvent(input$showUnitsTSV_cell_edit, {
     message('manual input ',input$showUnitsTSV_cell_edit)
@@ -1023,7 +1061,25 @@ server <- function(session, input, output) {
     dt_samplesheet(df) # write back
     # if units.tsv has been written, overwrite with any edits
     if (globals$checks$gitCheck) {
-      message('writing edited units.tsv to disk')
+      message('writing edited units.tsv to disk from showUnitsTSV_cell_edit')
+      readr::write_delim(dt_samplesheet(),file=file.path(globals$repoPath,'config/samplesheet/units.tsv'))
+    }
+  })
+  
+  # Capture cell edits and update the reactive data
+  observeEvent(input$sampleSheet_cell_edit, {
+    message('manual input ',input$sampleSheet_cell_edit)
+    info <- input$sampleSheet_cell_edit
+    
+    df <- dt_samplesheet()  
+    message('df is: ', class(df), ' | nrow: ', nrow(df))
+    req(!is.null(df))   # stop here if still NULL
+    
+    df[info$row, info$col] <- info$value  # apply the edit directly
+    dt_samplesheet(df) # write back
+    # if units.tsv has been written, overwrite with any edits
+    if (globals$checks$gitCheck) {
+      message('writing edited units.tsv to disk from sampleSheet_cell_edit')
       readr::write_delim(dt_samplesheet(),file=file.path(globals$repoPath,'config/samplesheet/units.tsv'))
     }
   })

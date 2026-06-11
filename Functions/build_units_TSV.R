@@ -47,7 +47,7 @@ build_units_TSV <- function(
     return(
       list(
         'units' = df,
-        'message' = paste('Samplesheet has required columns \'sample\' and \'group\'.\n',"\nColumns \'fq1\' and \'fq2\' were not initially found.") 
+        'message' = paste('Samplesheet has required columns \'sample\' and \'group\'.\n',"\nColumns \'fq1\' and \'fq2\' were not found.") 
       )
     )
   }else if(all(columnsFromGenomics %in% colnames(df))){
