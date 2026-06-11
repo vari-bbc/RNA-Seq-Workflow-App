@@ -28,6 +28,8 @@ check_FASTQs <- function(
       return(exists)
     })
     all_fq1_found <- all(unlist(fefq1)==TRUE)
+    missing_fq1 <- file.path(fastqDir, units$fq1[!as.logical(unlist(fefq1))])
+    
     fefq2 <- lapply(units$fq2,FUN=function(fq){
       path <- file.path(fastqDir,fq)
       exists <- file.exists(path)
@@ -35,12 +37,19 @@ check_FASTQs <- function(
       return(exists)
     })
     all_fq2_found <- all(unlist(fefq2)==TRUE)
+    missing_fq2 <- file.path(fastqDir, units$fq2[!unlist(fefq2)])
+    
+    # for showing samples with issues
+    units_missing <- units[which(!(unlist(fefq1) & unlist(fefq2))),]
     
     return(
       list(
         'all_fq1_found' = all_fq1_found,
         'all_fq2_found' = all_fq2_found,
-        'units' = as.data.frame(units)
+        'units' = as.data.frame(units),
+        'missing_fq1' = missing_fq1,
+        'missing_fq2' = missing_fq2,
+        'units_missing' = as.data.frame(units_missing)
       )
     )
   }else{
@@ -76,32 +85,30 @@ check_FASTQs <- function(
       ungroup()
     
     
-    # ==  confirm all fq1 and fq2 files exist in inputDir
-    # missing_fq1 <- list()
+    # ==  confirm all fq1 and fq2 files exist in inputDir -- 
+    # note Jun 11, 2026; I am not sure this is needed because the files are autodetected
+    # leaving for now because should always return TRUE
     fefq1 <- lapply(units$fq1,FUN=function(fq){
       path <- file.path(fastqDir,fq)
       exists <- file.exists(path)
-      if (!exists) {
-        message("NOT FOUND: ", path)
-        # missing_fq1[[length(missing_fq1) + 1]] <<- path
-      }
+      if (!exists) {message("NOT FOUND: ", path)}
       return(exists)
     })
     all_fq1_found <- all(unlist(fefq1)==TRUE)
+    
     fefq2 <- lapply(units$fq2,FUN=function(fq){
       path <- file.path(fastqDir,fq)
       exists <- file.exists(path)
-      if (!exists) message("NOT FOUND: ", path)
+      if (!exists) {message("NOT FOUND: ", path)}
       return(exists)
     })
     all_fq2_found <- all(unlist(fefq2)==TRUE)
-    
-    
+   
     return(
       list(
         'all_fq1_found' = all_fq1_found,
         'all_fq2_found' = all_fq2_found,
-        'units' = as.data.frame(units)
+        'units' = as.data.frame(units),
       )
     )
   }
