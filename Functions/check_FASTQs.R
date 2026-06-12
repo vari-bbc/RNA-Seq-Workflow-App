@@ -109,6 +109,9 @@ check_FASTQs <- function(
         'all_fq1_found' = all_fq1_found,
         'all_fq2_found' = all_fq2_found,
         'units' = as.data.frame(units),
+        'missing_fq1' = NULL,
+        'missing_fq2' = NULL,
+        'units_missing' = NULL
       )
     )
   }
