@@ -633,7 +633,7 @@ server <- function(session, input, output) {
         # output$unitsTitle <- renderText({'units.tsv'})
         # render the table only for samples with missing data
         # get index of dt_samplesheet() missing
-        output$unitsTitle <- renderText({'To continute, fix FASTQ and sample names discrepancies & reselect folder with FASTQ files. Samples with problems are shown in the table.'})
+        output$unitsTitle <- renderText({'To continute, fix FASTQ and sample names discrepancies. Samples with problems are shown in the table! Change the FASTQ file names to match the samplesheet or edit the samplesheet (click "Show Sample Sheet" and directly edit). Then reselect a folder with FASTQ files.'})
         
         output$showUnitsFastqStep <- renderTable({  check_FASTQs_result[['units_missing']] })
       }
