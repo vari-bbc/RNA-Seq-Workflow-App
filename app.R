@@ -715,7 +715,7 @@ server <- function(session, input, output) {
     globals$resultsFolder <- file.path(repoPath,"results/make_final_report/BBC_RNAseq_Report")
     tryCatch({
       message('Downloading BBC rnaseq_workflow ', repo.url, " into ", repoPath)
-      result <- system2("git", args = c("clone", repo.url, repoPath), stderr = TRUE)
+      result <- system2("git", args = c("clone", repo.url, shQuote(repoPath)), stderr = TRUE)
       exitCode <- attr(result, "status")
       # exitCode=0 # debugging
       if (!is.null(exitCode) && exitCode != 0) {
@@ -746,7 +746,7 @@ server <- function(session, input, output) {
     system2("ln", args = c(
       "-s",
       file.path(fastqDir, list.files(fastqDir, pattern = "\\.fastq\\.gz$|\\.fq\\.gz$")),
-      file.path(repoPath,'raw_data')
+      file.path(shQuote(repoPath),'raw_data')
     ))
     output$symLinkFastq <- renderText({ paste0("FASTQ files linked from ",fastqDir," into ",repoPath,"/raw_data/") })
     
