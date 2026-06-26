@@ -743,11 +743,19 @@ server <- function(session, input, output) {
     })
     
     # == Link the fastqDir FASTQs to repoPath/raw_data ==
+    source_files <- file.path(fastqDir, list.files(fastqDir, pattern = "\\.fastq\\.gz$|\\.fq\\.gz$"))
+    target_dir   <- file.path(repoPath, 'raw_data')
+    
     system2("ln", args = c(
       "-s",
-      file.path(fastqDir, list.files(fastqDir, pattern = "\\.fastq\\.gz$|\\.fq\\.gz$")),
-      file.path(shQuote(repoPath),'raw_data')
+      shQuote(source_files),
+      shQuote(target_dir)
     ))
+    # system2("ln", args = c(
+    #   "-s",
+    #   file.path(fastqDir, list.files(fastqDir, pattern = "\\.fastq\\.gz$|\\.fq\\.gz$")),
+    #   file.path(shQuote(repoPath),'raw_data')
+    # ))
     output$symLinkFastq <- renderText({ paste0("FASTQ files linked from ",fastqDir," into ",repoPath,"/raw_data/") })
     
     # write units.tsv
