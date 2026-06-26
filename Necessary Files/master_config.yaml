@@ -215,6 +215,8 @@ unchanged:
 
   genes_of_interest: #DUSP1,KLF15,CRISPLD2 # create table in report of these genes, keep empty if no initial genes of interest.
 
+  raw_data_path: raw_data/
+
   grouped_contigs: config/grouped_contigs.tsv 
 
 
