@@ -796,6 +796,7 @@ server <- function(session, input, output) {
     ## create the config.YAML
     build_YAML(
       outputDir          = as.character(outputDir),
+      repoDir            = as.character(globals$repoPath),
       ref_genome_version = as.character(refVersions),
       species_name       = as.character(speciesSelect),
       fdrCutoff          = as.numeric(fdrCutoff), # numeric

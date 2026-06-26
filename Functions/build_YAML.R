@@ -24,6 +24,7 @@
 #'
 build_YAML <- function(
     outputDir = 'default_outputDir',
+    repoDir   = NULL,
     ref_genome_version = 'default_ref_version', 
     species_name = 'default_species_name',
     fdrCutoff = 1,
@@ -47,6 +48,7 @@ build_YAML <- function(
   
   # =========== import the template master YAML #
   master <- yaml::read_yaml('Necessary\ Files/master_config.yaml')
+  current <- yaml::read_yaml(file.path(repoDir, "config/config.yaml"))
   
   #----------------------------------------------------------------------------#
   # substitute in ref_genome_version for [[species_name]]
@@ -74,12 +76,20 @@ build_YAML <- function(
   #----------------------------------------------------------------------------#
   # check_built_YAML(master_YAML=master,species_name=species_name)
   
+  out_yaml <- c(
+    master[[species_name]],
+    master[["modifiable_parameters"]],
+    master[["unchanged"]]
+  )
+  
+  missing_params <- setdiff(names(current), names(out_yaml))
+
+  if (length(missing_params) > 0){
+    stop("Missing params: ", paste0(missing_params, collpase=", "))
+  }
+
   write_yaml(
-    c(
-      master[[species_name]],
-      master[["modifiable_parameters"]],
-      master[["unchanged"]]
-    ),
+    out_yaml,
     paste0(outputDir,"/rnaseq_workflow/config/config.yaml")
   )
 
