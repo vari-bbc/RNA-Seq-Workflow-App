@@ -180,7 +180,7 @@ ui <- UINav2(
                      style = "margin-top: -8px; margin-bottom: 10px; color: #777; font-size: 13px;"),
               navSelect("columnsToFilterOn", "Select a column to filter", "Single", "Locked",
                         theChoices = NULL),
-              navSelect("filterColumnLevel", "", "Single", "Locked",
+              navSelect("filterColumnLevel", "First select a column to filter", "Single", "Locked",
                         theChoices = NULL)
             ),
             actionButton("buildContrasts",
@@ -876,16 +876,16 @@ server <- function(session, input, output) {
   observeEvent(input$buildContrasts, {
     if(testing){repoPath <- '/fake/path/because/testing/1/'}
     output$contrastsInfo1 <- renderText({ paste0("Added comparison to ",repoPath,"/config/samplesheet/comparisons.tsv") })
-    # output$contrastsInfo2 <- renderText({
-    #   paste(
-    #     'columnsToContrast', input$columnsToContrast, '<br>',
-    #     'baselineGrpContrast', input$baselineGrpContrast, '<br>',
-    #     'relavtiveGrpContrast', input$relavtiveGrpContrast, '<br>',
-    #     'covariateColumn', input$covariateColumn, '<br>',
-    #     'columnsToFilterOn', input$columnsToFilterOn, '<br>',
-    #     'filterColumnLevel', input$filterColumnLevel
-    #   )
-    # })
+    output$contrastsInfo2 <- renderText({
+      paste(
+        'columnsToContrast', input$columnsToContrast, '<br>',
+        'baselineGrpContrast', input$baselineGrpContrast, '<br>',
+        'relavtiveGrpContrast', input$relavtiveGrpContrast, '<br>',
+        'covariateColumn', input$covariateColumn, '<br>',
+        'columnsToFilterOn', input$columnsToFilterOn, '<br>',
+        'filterColumnLevel', input$filterColumnLevel
+      )
+    })
 
     comparisons <- build_comparisons_TSV(
       units = dt_samplesheet(),
@@ -1197,7 +1197,7 @@ server <- function(session, input, output) {
     activateItems('filterColumnLevel')
     updateSelectizeInput(session, "filterColumnLevel",
                          choices = vals,
-                         label    = paste0("Select a column to filter first"),
+                         label    = paste0("I want this contrast to include only samples where '", input$columnsToFilterOn, "' is equal to"),
                          selected = character(0))
   })
 
