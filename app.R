@@ -4,7 +4,7 @@
 if (!require("pacman", quietly = TRUE))
     install.packages("pacman", repos = "https://cloud.r-project.org")
 
-testing <- 0
+testing <- 1
 ## 1.0 Load Libraries ----
 # change back to individual loads
 pacman::p_load(shiny,bslib,shinyjs,shinyWidgets,bsicons,plotly,DT,readr,
@@ -26,9 +26,9 @@ cardHeight <<- '65vh'
 # Necessary Files here:
 # template <<- read_excel(paste0("Necessary Files/SampleTemplate.xlsx"), sheet = 1)
 # Root Dir for Folder Selection:
-rootDir <<- c('HPC Home Directory' = file.path("/home",Sys.getenv("USER")), 
+rootDir <<- c('HPC Home Directory' = file.path("/home",Sys.getenv("USER")),
               'Local Home Directory' = "~",
-              "HPC Lab Folders" = "/varidata/research/projects/", 
+              "HPC Lab Folders" = "/varidata/research/projects/",
               "HPC Temp Folder" = "/varidata/researchtemp/hpctmp/"
 )
 restrictDir <<- c("afs","bin","cloudstorage","cm","dev","etc","legacy","lib",
@@ -42,16 +42,16 @@ restrictDir <<- c("afs","bin","cloudstorage","cm","dev","etc","legacy","lib",
 # Tool tips are last in nav item and should be specified with tooltipText = "..."
 ui <- UINav2(
   # useShinyjs(), # already called in UINav
-  uiOutput("tab_buttons"), 
+  uiOutput("tab_buttons"),
   progressBar(id = "workflow_progress", value = 1, total = 1, display_pct = FALSE),
   navset_hidden(
     id = "main_tabs",
-    nav_panel("step1", 
+    nav_panel("step1",
       card( height = cardHeight,
         layout_sidebar( sidebar = sidebar(position = "right",
           navOutputText("sampleUploadText"),
           navOutputText("showUnitsTSV_Message"),
-          textOutput("showUnitsTSV_Message2", inline = FALSE) |> 
+          textOutput("showUnitsTSV_Message2", inline = FALSE) |>
             tagAppendAttributes(style = "font-size: 15px;")
         ),
           navUpload(
@@ -70,7 +70,7 @@ ui <- UINav2(
     nav_panel("step2",
       card( height = cardHeight,
         layout_sidebar( sidebar = sidebar(position = "right",
-          navButton("showSampleSheet2","Show Sample Sheet"),
+          navButton("showSampleSheet2","Show/edit Sample Sheet"),
           navOutputText("fastqDirText"),
           navOutputText("fq1Found"),
           navOutputText("fq2Found"),
@@ -96,7 +96,7 @@ ui <- UINav2(
       card( height = cardHeight,
         layout_sidebar(
           sidebar = sidebar(position = "right",
-            navButton("showSampleSheet3","Show Sample Sheet"),
+            navButton("showSampleSheet3","Show/edit Sample Sheet"),
             navOutputText("outputErrorText"),
             navOutputText("outputErrorText2"),
             navOutputText("gitCloneMessage"),
@@ -115,7 +115,7 @@ ui <- UINav2(
             ),
             actionButton("downloadRepo",  tagList(
                 bsicons::bs_icon("cloud-download", size = "1.5em"),
-                tags$span("Download Snakemake workflow from github", 
+                tags$span("Download Snakemake workflow from github",
                           style = "font-size: 1.5rem; vertical-align: middle;")
               ), width = "100%"
             )
@@ -126,10 +126,10 @@ ui <- UINav2(
     nav_panel("step4",card( height = cardHeight,
         layout_sidebar(
           sidebar = sidebar(position = "right",
-            navButton("showSampleSheet4","Show Sample Sheet"),
+            navButton("showSampleSheet4","Show/edit Sample Sheet"),
             p("Choose the reference, species, and analysis settings before saving the config file.")
           ),
-          navSelect("refVersions", "Reference Version", "Single", "Locked", 
+          navSelect("refVersions", "Reference Version", "Single", "Locked",
                     theChoices = refVersionChoices),
           navSelect("speciesSelect","Select the Species & Annotation", "Single", "Locked",
                     theChoices = speciesSelectChoices),
@@ -146,20 +146,49 @@ ui <- UINav2(
           hr()
         )
       ),
-    ), 
+    ),
     nav_panel("step5",card( height = cardHeight,
         layout_sidebar(
           sidebar = sidebar(position = "right",
-            navButton("showSampleSheet5","Show Sample Sheet"),
+            navButton("showSampleSheet5","Show/edit Sample Sheet"),
+            navButton("showComparisonsSheet1","Show/edit Comparisons Sheet"),
             navOutputText("contrastsInfo1"),
+            navOutputText("contrastsInfo2"),
             verbatimTextOutput("filepath"),
-            p("We are working to build more options. For now, contact bbc@vai.org for help building more complicated comparisons.")
+            # p("We are working to build more options. For now, contact bbc@vai.org for help building more complicated comparisons.")
           ),
           div(
-            actionButton("buildContrasts",tagList(
-                bsicons::bs_icon("rocket-takeoff", size = "1.5em"),
-                tags$span("Build differential expression comparisons from column \'group\'", style = "font-size: 1.4rem; vertical-align: middle;")
-              )
+            # --- Contrast definition group ---
+            wellPanel(
+              tags$h5("Build a contrast", style = "margin-top: 0; font-weight: 600;"),
+              tags$p("Comparisons are constructed as 'relative_group' vs 'baseline group'. Genes with expression higher in relative_grp than baseline_grp have fold change greater than 0. Normally wildtype/untreated/control is set as baseline group",
+                     style = "margin-top: -8px; margin-bottom: 10px; color: #777; font-size: 13px;"),
+              navSelect("columnsToContrast", "Select the samplesheet column to contrast", "Single", "Locked",
+                        theChoices = NULL),
+              navSelect("relativeGrpContrast", "Select the relative group", "Single", "Locked",
+                        theChoices = NULL),
+              navSelect("baselineGrpContrast", "Select the baseline group", "Single", "Locked",
+                        theChoices = NULL),
+              navSelect("covariateColumn", "(Optional) Select a covariate column", "Single", "Locked",
+                        theChoices = NULL)
+            ),
+
+            # --- Filtering group ---
+            wellPanel(
+              tags$h5("(Optional) Filter samples for contrast", style = "margin-top: 0; font-weight: 600;"),
+              tags$p("If you want to compare only a subset of samples. For example if you want to contrast treated vs. untreated only in WT samples, then select 'genotype' as the column to filter and 'WT' as what the value of genotype should be.",
+                     style = "margin-top: -8px; margin-bottom: 10px; color: #777; font-size: 13px;"),
+              navSelect("columnsToFilterOn", "Select a column to filter", "Single", "Locked",
+                        theChoices = NULL),
+              navSelect("filterColumnLevel", "", "Single", "Locked",
+                        theChoices = NULL)
+            ),
+            actionButton("buildContrasts",
+                         tagList(
+                           bsicons::bs_icon("cart-plus", size = "1.5em"),
+                           tags$span("Add this differential comparison", style = "font-size: 1.4rem; vertical-align: middle;")
+                         ),
+                         style = "width: 100%; display: block; margin-bottom: 10px;"
             ),
             tableOutput("contrastsTableOutput"),
             # actionButton("editComparisons", "Optional: directly edit comparisons")
@@ -248,21 +277,21 @@ ui <- UINav2(
     )
   )
 )
-  
-  
+
+
 # ___________________ ----
 # Server ----
 
 server <- function(session, input, output) {
-  
+
   ## 0.1 Global Vars ----
   # Any variables here that need to carry across app sections, but should be local to the user
   # Keep all variables inside a list to help with debugging later
   globals <- reactiveValues(
     checks = list(
-      fastqFilesFound = FALSE, # 
-      outputDirCheck = FALSE, # 
-      sampleSheetCheck = FALSE, # 
+      fastqFilesFound = FALSE, #
+      outputDirCheck = FALSE, #
+      sampleSheetCheck = FALSE, #
       gitCheck = F
     ),
     samplesheet_path = NULL,
@@ -275,15 +304,20 @@ server <- function(session, input, output) {
     logSTDERR = 'rnaseq_workflow_app_run.e',
     fastqDir = NULL
   )
-  
+
   dt_samplesheet <- reactiveVal(NULL)
-  
-  # Render the table 
+  dt_comparisons <- reactiveVal(NULL)
+
+  # Render the table
   output$sampleSheet <- renderDT({
     datatable(dt_samplesheet(), editable = "cell")
   })
-  
-  # Trigger the psample sheet popup
+  # Render the table
+  output$comparisonsSheet <- renderDT({
+    datatable(dt_comparisons(), editable = "cell")
+  })
+
+  # Trigger the sample sheet popup
   observeEvent(input$showSampleSheet2, {
     showModal(modalDialog(
       title = "Sample Sheet",
@@ -293,7 +327,7 @@ server <- function(session, input, output) {
       footer = modalButton("Close")
     ))
   })
-  
+
   observeEvent(input$showSampleSheet3, {
     showModal(modalDialog(
       title = "Sample Sheet",
@@ -313,7 +347,7 @@ server <- function(session, input, output) {
       footer = modalButton("Close")
     ))
   })
-  
+
   observeEvent(input$showSampleSheet5, {
     showModal(modalDialog(
       title = "Sample Sheet",
@@ -323,7 +357,17 @@ server <- function(session, input, output) {
       footer = modalButton("Close")
     ))
   })
-  
+
+   observeEvent(input$showComparisonsSheet1, {
+    showModal(modalDialog(
+      title = "Comparisons",
+      DTOutput("comparisonsSheet"),
+      easyClose = TRUE,
+      size = "xl",
+      footer = modalButton("Close")
+    ))
+  })
+
   observe({
     # Deactivate buttons that need other things to function
     if(!testing){
@@ -343,14 +387,15 @@ server <- function(session, input, output) {
           "openLogSTDOUT",
           "downLoadFinalReport",
           "openResults",
-          # 
+          'filterColumnLevel',
+          #
           "btn_next",
           "btn_prev"
         )
       )
     }
   })
-  
+
   ## 0.1.2 Modals ----
   # --- Modal ---
   showModal(
@@ -364,7 +409,7 @@ server <- function(session, input, output) {
       easyClose = FALSE
     )
   )
-  
+
   observeEvent(input$btn_new, {
     message('Modal new')
     removeModal()
@@ -381,7 +426,7 @@ server <- function(session, input, output) {
       range_value = c(1,total_steps)
     )
   })
-  
+
   observeEvent(input$btn_existing, {
     message('Modal existing')
     removeModal()
@@ -398,16 +443,16 @@ server <- function(session, input, output) {
       range_value = c(1,total_steps)
     )
   })
-  
+
   observe({
     n <- length(globals$tab_order)
     i <- globals$current_index
-    
+
     # Toggle visibility instead of recreating the UI
     # toggleState("btn_prev", condition = (i > 1))
     # toggleState("btn_next", condition = (i < n))
   })
-  
+
   observeEvent(input$btn_next, {
     globals$current_index <- min(globals$current_index + 1, length(globals$tab_order))
     selected_tab <- globals$tab_order[globals$current_index]
@@ -421,21 +466,21 @@ server <- function(session, input, output) {
       total = length(globals$tab_order),
       range_value = c(1,length(globals$tab_order))
     )
-    
+
     # if (selected_tab == 'step5') { # so this is if you clicked NEXT on step4, compileConfig tab
     #   message('shinyjs::click(compileConfig) -- going to next ...')
     #   shinyjs::click("compileConfig")
     # }
-    
+
     if(!testing){deactivateItems("btn_next")}
     # if(selected_tab == 'step4'){activateItems("btn_next")} # if you are on step4, option to click next and save
   })
-  
+
   observeEvent(input$btn_prev, {
     globals$current_index <- max(globals$current_index - 1, 1)
     message('globals$current_index',globals$current_index)
     nav_select("main_tabs", selected = globals$tab_order[globals$current_index])
-    
+
     updateProgressBar(
       session = session,
       id = "workflow_progress",
@@ -443,16 +488,16 @@ server <- function(session, input, output) {
       total = length(globals$tab_order),
       range_value = c(1,length(globals$tab_order))
     )
-    
+
   })
 
-  
-  
+
+
   ## 1.0 Import Samplesheet ----
   observeEvent(input$sampleUpload, {
     req(input$sampleUpload)
     message('globals$checks$sampleSheetCheck ',globals$checks$sampleSheetCheck)
-    
+
     file <- input$sampleUpload
     globals$samplesheet_path <- file$name
 
@@ -490,9 +535,9 @@ server <- function(session, input, output) {
         type  = "error"
       )
     }
-    
+
     req(df)
-    
+
     build_units_TSV_output <- NULL
     message <- NULL
     # ==  Create the repoPath/config/samplesheet/units.tsv file
@@ -505,20 +550,20 @@ server <- function(session, input, output) {
       )
       globals$checks$sampleSheetCheck <- TRUE
       globals$units <- build_units_TSV_output[['units']] # saves the original, but dt_samplesheet() has any edits & should be used
-      
+
       message <- build_units_TSV_output[['message']]
-      
+
       message('samplesheet imported ...')
       output$sampleUploadText <- renderText({ paste('Loaded',file$name,"\n") })
       output$showUnitsTSV_Message <- renderText({ message })
       output$showUnitsTSV_Message2 <- renderText({ 'Click on any cell to directly edit! Changes will be saved.' })
-      
+
       message('class units ',class(build_units_TSV_output[['units']]))
       message('dim units ',dim(build_units_TSV_output[['units']]))
       dt_samplesheet(as.data.frame(build_units_TSV_output[['units']]))
       message('class dt_samplesheet ',class(dt_samplesheet))
       output$showUnitsTSV <- renderDT({ datatable(dt_samplesheet(), editable = "cell") })
-      
+
     }, error = function(e) {
       showNotification(e$message, type = "error")
       shinyalert(
@@ -529,26 +574,26 @@ server <- function(session, input, output) {
       )
       globals$checks$sampleSheetCheck <- FALSE
     })
-    
+
     message('globals$checks$sampleSheetCheck ',globals$checks$sampleSheetCheck)
-    
+
     if(globals$checks$sampleSheetCheck){
-      
+
       activateItems(c('fastqPathSelect','btn_next'))
       message('activating fastqPathSelect')
     }
   })
-  
+
   ## 2.0 Select FASTQ Folder ----
     shinyDirChoose(input, "fastqPathSelect", roots = rootDir, session = session, filetypes = character(0),
                    allowDirCreate = FALSE, hidden = FALSE, restrictions = restrictDir)
-    
+
     observeEvent(input$fastqPathSelect,{
       message('observed input$fastqPathSelect')
       fastqDir <- parseDirPath(rootDir,input$fastqPathSelect)
-      
+
       req(parseDirPath(rootDir, input$fastqPathSelect) != "") # this stops code being run until a dir is selected
-      
+
       # Check if selected directory is readable
       # Returns TRUE if readable, FALSE otherwise
       is_readable <- file.access(fastqDir, mode = 4) == 0
@@ -565,7 +610,7 @@ server <- function(session, input, output) {
         )
         return()
       }
-      
+
       # check that FASTQs exist in fastqDir
       check_FASTQs_result <- check_FASTQs(
         units = dt_samplesheet(),
@@ -573,11 +618,11 @@ server <- function(session, input, output) {
       )
       # reset dt_samplesheet() with any FASTQ information
       dt_samplesheet(as.data.frame(check_FASTQs_result[['units']]))
-      
+
       missing_fq1 <- check_FASTQs_result[['missing_fq1']]
       missing_fq2 <- check_FASTQs_result[['missing_fq2']]
-      
-      
+
+
       if(check_FASTQs_result[['all_fq1_found']]==FALSE){
         shinyalert(
           title = "fq1 files missing!",
@@ -585,7 +630,7 @@ server <- function(session, input, output) {
           type  = "warning"
         )
         globals$checks$fastqFilesFound <- FALSE
-        output$fq1Found <- renderText({ 
+        output$fq1Found <- renderText({
             paste(
               paste0(length(missing_fq1)," of ",nrow(dt_samplesheet()),
                    " FASTQs from column fq1 NOT FOUND:\n"),
@@ -604,14 +649,14 @@ server <- function(session, input, output) {
           closeOnClickOutside = TRUE
         )
         globals$checks$fastqFilesFound <- FALSE
-        output$fq2Found <- renderText({ 
+        output$fq2Found <- renderText({
           paste(
             paste0(length(missing_fq2)," of ",nrow(dt_samplesheet()),
                    " FASTQs from column fq1 NOT FOUND:\n"),
             paste(missing_fq2,collapse="\n"),
             sep="\n"
           )
-        })      
+        })
       }else{
         output$fq2Found <- renderText({''}) # no message needed
       }
@@ -619,7 +664,7 @@ server <- function(session, input, output) {
         globals$checks$fastqFilesFound <- TRUE
         n <- nrow(dt_samplesheet())
         output$fqFound <- renderText({ paste0("FASTQs for all ",n," samples found.\n") })
-        
+
         output$showUnitsFastqStep <- renderTable({  dt_samplesheet() })
         shinyalert(
           title = "All samples FASTQ files found!",
@@ -628,23 +673,23 @@ server <- function(session, input, output) {
           closeOnClickOutside = TRUE
         )
         output$unitsTitle <- renderText({''}) # no message needed
-      }else{ 
+      }else{
         # finish up error messages and print table for when not found
         # output$unitsTitle <- renderText({'units.tsv'})
         # render the table only for samples with missing data
         # get index of dt_samplesheet() missing
         output$unitsTitle <- renderText({'To continute, fix FASTQ and sample names discrepancies. Samples with problems are shown in the table! Change the FASTQ file names to match the samplesheet or edit the samplesheet (click "Show Sample Sheet" and directly edit). Then reselect a folder with FASTQ files.'})
-        
+
         output$showUnitsFastqStep <- renderTable({  check_FASTQs_result[['units_missing']] })
       }
-      
+
       # Check if 'Check Files and Folders' runnable
       if (globals$checks$fastqFilesFound){
         activateItems(c("outputPathSelect","btn_next"))
         globals$fastqDir <- fastqDir
       }
     })
-  
+
   ## 3.1 Select Output Folder ----
   shinyDirChoose(input, "outputPathSelect", roots = rootDir, session = session, filetypes = character(0),
                  allowDirCreate = TRUE)
@@ -652,9 +697,9 @@ server <- function(session, input, output) {
     message('observeEvent outputPathSelect')
     message('fastqDir ',globals$fastqDir)
     outputDir <- parseDirPath(rootDir,input$outputPathSelect)
-    
+
     req(parseDirPath(rootDir, input$outputPathSelect) != "") # this stops code being run until a dir is selected
-    
+
     # Check if selected directory is writable
     # Returns TRUE if writable, FALSE otherwise
     is_writable <- file.access(outputDir, mode = 2) == 0
@@ -671,8 +716,8 @@ server <- function(session, input, output) {
     }else{
       globals$checks$outputDirCheck <- TRUE
     }
-    
-    ### 
+
+    ###
     # Check if rnaseq_workflow github repo already exists
     repo.url <- "https://github.com/vari-bbc/rnaseq_workflow.git"
     repoName <- gsub(pattern = '.git$',replacement = '',x = basename(repo.url))
@@ -687,8 +732,8 @@ server <- function(session, input, output) {
       globals$checks$outputDirCheck <- FALSE # disable if already exists
       return()
     }
-    
-    
+
+
     if (globals$checks$fastqFilesFound & globals$checks$outputDirCheck){
       activateItems(c("downloadRepo"))
       output$outputErrorText <- renderText({ paste0('Selected directory: ',outputDir,"\n") })
@@ -696,16 +741,16 @@ server <- function(session, input, output) {
       deactivateItems(c("sampleUpload","fastqPathSelect","outputPathSelect"))
     }
   })
-  
+
   ## 3.2 download repo, ln -s .fq, write units.tsv ----
   observeEvent(input$downloadRepo, {
     deactivateItems('downloadRepo') # disable double clicking
     startSection("Download github repo")
-    
+
     # == Inputs
     fastqDir <- parseDirPath(rootDir,input$fastqPathSelect)
     outputDir <- parseDirPath(rootDir,input$outputPathSelect)
-      
+
     # ==  Clone github folder to outputDir ==
     repo.url <- "https://github.com/vari-bbc/rnaseq_workflow.git"
     repoName <- gsub(pattern = '.git$',replacement = '',x = basename(repo.url))
@@ -722,13 +767,13 @@ server <- function(session, input, output) {
         stop(paste("git clone failed:", paste(result, collapse = "\n"),
                    "\nDestination path may already exist:", repoPath))
       }
-      
+
       # modify bin/run_snake.sh
       script <- readLines(file.path(repoPath,"bin/run_snake.sh"))
       script <- gsub("cd \\$SLURM_SUBMIT_DIR", paste("cd", repoPath), script)
       # script <- gsub("cd \\$SLURM_SUBMIT_DIR", 'sleep 10; exit 1;', script)
       writeLines(script, file.path(repoPath,"bin/run_snake_APP.sh"))
-      
+
       output$gitCloneMessage <- renderText({ paste("Cloned", repoName, "into", repoPath) })
       globals$checks$gitCheck <- TRUE
     }, error = function(e) {
@@ -741,11 +786,11 @@ server <- function(session, input, output) {
       )
       globals$checks$gitCheck <- FALSE
     })
-    
+
     # == Link the fastqDir FASTQs to repoPath/raw_data ==
     source_files <- file.path(fastqDir, list.files(fastqDir, pattern = "\\.fastq\\.gz$|\\.fq\\.gz$"))
     target_dir   <- file.path(repoPath, 'raw_data')
-    
+
     system2("ln", args = c(
       "-s",
       shQuote(source_files),
@@ -757,13 +802,13 @@ server <- function(session, input, output) {
     #   file.path(shQuote(repoPath),'raw_data')
     # ))
     output$symLinkFastq <- renderText({ paste0("FASTQ files linked from ",fastqDir," into ",repoPath,"/raw_data/") })
-    
+
     # write units.tsv
     readr::write_delim(dt_samplesheet(),file=file.path(repoPath,'config/samplesheet/units.tsv'),
     delim="\t",quote="none")
     output$wroteUnitsTSV <- renderText({ "units.tsv saved" })
-    
-    
+
+
     if (globals$checks$gitCheck){
       shinyalert::shinyalert(
         title = "Success!",
@@ -781,18 +826,18 @@ server <- function(session, input, output) {
         closeOnClickOutside = TRUE
       )
     }
-    
+
     endSection("Check files")
   })
-  
-  
+
+
   ## 4.0 Create Config.yaml ----
   observeEvent(input$compileConfig, {
     startSection("Start create config files")
-    
+
     ## Load outdir
     outputDir <- parseDirPath(rootDir,input$outputPathSelect)
-    
+
     ## Load inputs
     refVersions <- input$refVersions
     speciesSelect <- input$speciesSelect
@@ -800,7 +845,7 @@ server <- function(session, input, output) {
     pairedSingle <- input$pairedSingle
     visBigWig <- input$visBigWig
     rSeqC <- input$rSeqC
-      
+
     ## create the config.YAML
     build_YAML(
       outputDir          = as.character(outputDir),
@@ -813,56 +858,56 @@ server <- function(session, input, output) {
       run_vis_bigwig          = as.logical(visBigWig)
     )
     showNotification(paste0("YAML created in ",outputDir,'/rnaseq_workflow/config/config.yaml'), type = "message")
-    
+
     shinyalert::shinyalert(
       title = "Saved!",
       text  = paste0("\n\nPlease contact bbc@vai.org for help."),
       type  = "success",
       closeOnClickOutside = TRUE
     )
-      
+
     activateItems(c("buildContrasts",'btn_next'))
-    
+
     endSection("End create config files")
   })
-  
-  
+
+
   ## 5.1 Select Comparisons ----
   observeEvent(input$buildContrasts, {
-    repoPath <- globals$repoPath
-    # pass 2 build_comparisons_TSV.R
+    if(testing){repoPath <- '/fake/path/because/testing/1/'}
+    output$contrastsInfo1 <- renderText({ paste0("Added comparison to ",repoPath,"/config/samplesheet/comparisons.tsv") })
+    # output$contrastsInfo2 <- renderText({
+    #   paste(
+    #     'columnsToContrast', input$columnsToContrast, '<br>',
+    #     'baselineGrpContrast', input$baselineGrpContrast, '<br>',
+    #     'relavtiveGrpContrast', input$relavtiveGrpContrast, '<br>',
+    #     'covariateColumn', input$covariateColumn, '<br>',
+    #     'columnsToFilterOn', input$columnsToFilterOn, '<br>',
+    #     'filterColumnLevel', input$filterColumnLevel
+    #   )
+    # })
+
     comparisons <- build_comparisons_TSV(
       units = dt_samplesheet(),
+      comparisons = dt_comparisons(), # add it to this
+      columnsToContrast = input$columnsToContrast,
+      baselineGrpContrast = input$baselineGrpContrast,
+      relavtiveGrpContrast = input$relativeGrpContrast,
+      covariateColumn = input$covariateColumn,
+      columnsToFilterOn = input$columnsToFilterOn,
+      filterColumnLevel = input$filterColumnLevel,
       repoPath = repoPath
     )
-    message('done with build_comparisons')
-    ncontr <- nrow(comparisons)
-    output$contrastsInfo1 <- renderText({ paste0("Saved the following ",ncontr," comparisons into ",repoPath,"/config/samplesheet/comparisons.tsv") })
-    output$contrastsTableOutput <- renderTable({ comparisons })
-    
-    # activate run analysis button -- all steps done
-    activateItems(c("runWorkflow","editComparisons",'btn_next'))
-    
-    shinyalert::shinyalert(
-      title = "Success!",
-      text  = "Go to next\n\nPlease contact bbc@vai.org for help.",
-      type  = "success",
-      closeOnClickOutside = TRUE
-    )
-    
-    dir <- file.path(repoPath,'config/samplesheet/comparisons.tsv')
-    
-    
-    
+    message('class comparions',class(comparisons))
+    message('class comparisons[[datatable]]',class(comparisons[['datatable']]))
+    dt_comparisons((comparisons[['datatable']]))
+    message('added with build_comparisons',class(comparisons[['datatable']]),dim(comparisons[['datatable']]))
+    output$contrastsTableOutput <- renderTable({ dt_comparisons() })
+
+    activateItems(c("runWorkflow",'btn_next'))
+
   })
-  
-  # # 5.2 Edit Comparisons ----
-  # observeEvent(input$editComparisons, {
-  #   path <- file.path("https://ondemand1.vai.zone/pun/sys/dashboard/files/edit/fs/", globals$repoPath, 'config/samplesheet/comparisons.tsv')
-  #   message('editComparisons path: ', path)
-  #   runjs(paste0("window.open('", path, "', '_blank');"))
-  # })
-  
+
   ## 6.1 Run Snakemake Workflow ----
   observeEvent(input$runWorkflow, {
     repoPath <- globals$repoPath
@@ -870,20 +915,20 @@ server <- function(session, input, output) {
     script <- file.path(repoPath,'bin/run_snake_APP.sh')
     ## === Submit the slurm job to run the workflow
     # Parse the job ID from sbatch output
-    
+
     tryCatch({
-      sys2_output <- system2("sbatch", 
+      sys2_output <- system2("sbatch",
         args = c(
-          "--mail-type=END", 
-          paste0('--mail-user=',email), 
+          "--mail-type=END",
+          paste0('--mail-user=',email),
           "-o", file.path(repoPath, globals$logSTDOUT),
           "-e", file.path(repoPath, globals$logSTDERR),
           script
-        ), 
-        stdout = TRUE, 
+        ),
+        stdout = TRUE,
         stderr = TRUE
       )
-      job_id <- trimws(sub("Submitted batch job ", "", sys2_output))    
+      job_id <- trimws(sub("Submitted batch job ", "", sys2_output))
       globals$job_id <- job_id
       output$workflowStarted <- renderText({ paste(script,'successfully sumitted to SLURM')})
       output$job_status <- renderText({
@@ -899,11 +944,11 @@ server <- function(session, input, output) {
         type  = "info",
         closeOnClickOutside = TRUE
       )
-      
+
       # save YAML with job id for later
       write_yaml(file = file.path(repoPath,'app.yaml'),x = list('job_id'=job_id))
       globals$yaml_path_job_id = file.path(repoPath,'app.yaml')
-      
+
     }, error = function(e) {
       showNotification(e$message, type = "error")
       shinyalert(
@@ -913,7 +958,7 @@ server <- function(session, input, output) {
       )
     })
   })
-  
+
   ## 6.2 Check Job Status ----
   observeEvent(list(input$checkStatus, input$checkStatus2), {
     # Poll status
@@ -927,11 +972,11 @@ server <- function(session, input, output) {
       stdout = TRUE,
       stderr = FALSE
     )
-    
+
     # system2 returns exit code as an attribute when the command fails
     exit_code <- attr(squeue_output, "status")
     job_finished <- length(squeue_output) == 0 || (!is.null(exit_code) && exit_code != 0)
-    
+
     message("exit_code ", exit_code)
     message("job_finished ",job_finished)
     if (job_finished) {
@@ -948,7 +993,7 @@ server <- function(session, input, output) {
       output$job_status_refresh0 <- renderText(paste("Job still running:\n", status_line))
     }
   },ignoreInit = TRUE)
-  
+
   ## 6.3 Open Results Folder ----
   observeEvent(input$openResults, {
     baseName <- 'https://ondemand1.vai.zone/pun/sys/dashboard/files/fs/'
@@ -956,7 +1001,7 @@ server <- function(session, input, output) {
     message('path: ', path)
     runjs(paste0("window.open('", path, "', '_blank');"))
   })
-  
+
   ## Open log STDOUT  ----
   observeEvent(input$openLogSTDOUT, {
     baseName <- 'https://ondemand1.vai.zone/pun/sys/dashboard/files/fs/'
@@ -964,7 +1009,7 @@ server <- function(session, input, output) {
     message('path0: ', path0)
     runjs(paste0("window.open('", path0, "', '_blank');"))
   })
-  
+
   ## Open log STDERR  ----
   observeEvent(input$openLogSTDERR, {
     baseName <- 'https://ondemand1.vai.zone/pun/sys/dashboard/files/fs/'
@@ -972,7 +1017,7 @@ server <- function(session, input, output) {
     message('path0: ', path0)
     runjs(paste0("window.open('", path0, "', '_blank');"))
   })
-  
+
   ## Print log STDOUT  ----
   observeEvent(input$printLogSTDOUT, {
     path1 <- file.path(globals$repoPath, globals$logSTDOUT)
@@ -997,7 +1042,7 @@ server <- function(session, input, output) {
     output$openLogSTDERRContent0 <- renderText({ paste(tail_lines, collapse = "\n") })
   })
 
-  
+
   ## Select Existing Output Folder ----
   shinyDirChoose(input, "selectExistingWorkflow", roots = rootDir, session = session, filetypes = character(0),
                  allowDirCreate = TRUE)
@@ -1005,13 +1050,13 @@ server <- function(session, input, output) {
     outputDir <- parseDirPath(rootDir,input$selectExistingWorkflow)
     message('outputDir ',outputDir)
     req(parseDirPath(rootDir, input$selectExistingWorkflow) != "") # this stops code being run until a dir is selected
-    
+
     # do checks if it not a repo named rnaseq_workflow
     if (basename(outputDir) != "rnaseq_workflow") {
       warning(paste(outputDir," is not the rnaseq_workflow repo ... "))
       # check if rnaseq_workflow exists in selected directory
-      if("rnaseq_workflow" %in% list.files(outputDir) && 
-         "app.yaml" %in% list.files(file.path(outputDir, "rnaseq_workflow")) 
+      if("rnaseq_workflow" %in% list.files(outputDir) &&
+         "app.yaml" %in% list.files(file.path(outputDir, "rnaseq_workflow"))
       ){
         message(paste("Found an rnaseq_workflow directory in ",outputDir," ... using that ..."))
         globals$repoPath <- file.path(outputDir,'rnaseq_workflow')
@@ -1027,8 +1072,8 @@ server <- function(session, input, output) {
           type  = "error"
         )
       }
-      
-      
+
+
     }else{
       # checks out because folder matches rnaseq_workflow exactly
       globals$repoPath <- outputDir
@@ -1037,11 +1082,11 @@ server <- function(session, input, output) {
       globals$job_id <- read_yaml(file.path(globals$selectExistingWorkflow,'app.yaml'))$job_id
       activateItems(c('btn_next'))
     }
-    
+
     message('value of globals$job_id ',globals$job_id)
     message('value of globals$repoPath ',globals$repoPath)
   })
-    
+
 
   ## 6.2 Download Final Report ----
   output$downLoadFinalReport <- downloadHandler(
@@ -1058,32 +1103,32 @@ server <- function(session, input, output) {
   )
   ## Edit DTtable(s) ----
   # Capture edits and update the data
-  observeEvent(input$showUnitsTSV_cell_edit, {
-    message('manual input ',input$showUnitsTSV_cell_edit)
-    info <- input$showUnitsTSV_cell_edit
-    
-    df <- dt_samplesheet()  
-    message('df is: ', class(df), ' | nrow: ', nrow(df))
-    req(!is.null(df))   # stop here if still NULL
+  # observeEvent(input$showUnitsTSV_cell_edit, {
+  #   message('manual input ',input$showUnitsTSV_cell_edit)
+  #   info <- input$showUnitsTSV_cell_edit
+  #
+  #   df <- dt_samplesheet()
+  #   message('df is: ', class(df), ' | nrow: ', nrow(df))
+  #   req(!is.null(df))   # stop here if still NULL
+  #
+  #   df[info$row, info$col] <- info$value  # apply the edit directly
+  #   dt_samplesheet(df) # write back
+  #   # if units.tsv has been written, overwrite with any edits
+  #   if (globals$checks$gitCheck) {
+  #     message('writing edited units.tsv to disk from showUnitsTSV_cell_edit')
+  #     readr::write_delim(dt_samplesheet(),file=file.path(globals$repoPath,'config/samplesheet/units.tsv'))
+  #   }
+  # })
 
-    df[info$row, info$col] <- info$value  # apply the edit directly
-    dt_samplesheet(df) # write back
-    # if units.tsv has been written, overwrite with any edits
-    if (globals$checks$gitCheck) {
-      message('writing edited units.tsv to disk from showUnitsTSV_cell_edit')
-      readr::write_delim(dt_samplesheet(),file=file.path(globals$repoPath,'config/samplesheet/units.tsv'))
-    }
-  })
-  
   # Capture cell edits and update the reactive data
   observeEvent(input$sampleSheet_cell_edit, {
     message('manual input ',input$sampleSheet_cell_edit)
     info <- input$sampleSheet_cell_edit
-    
-    df <- dt_samplesheet()  
+
+    df <- dt_samplesheet()
     message('df is: ', class(df), ' | nrow: ', nrow(df))
     req(!is.null(df))   # stop here if still NULL
-    
+
     df[info$row, info$col] <- info$value  # apply the edit directly
     dt_samplesheet(df) # write back
     # if units.tsv has been written, overwrite with any edits
@@ -1092,6 +1137,70 @@ server <- function(session, input, output) {
       readr::write_delim(dt_samplesheet(),file=file.path(globals$repoPath,'config/samplesheet/units.tsv'))
     }
   })
+
+  observeEvent(input$comparisonsSheet_cell_edit, {
+    message('manual input ',input$comparisonsSheet_cell_edit)
+    info <- input$comparisonsSheet_cell_edit
+
+    df <- dt_comparisons()
+    message('df is: ', class(df), ' | nrow: ', nrow(df))
+    req(!is.null(df))   # stop here if still NULL
+
+    df[info$row, info$col] <- info$value  # apply the edit directly
+    dt_comparisons(df) # write back
+    # if units.tsv has been written, overwrite with any edits
+    if (globals$checks$gitCheck) {
+      message('writing edited comparisons.tsv to disk from comparisonsSheet_cell_edit')
+      readr::write_delim(dt_comparisons(),file=file.path(globals$repoPath,'config/samplesheet/comparisons.tsv'))
+    }
+  })
+
+  # this is for reactive values of comparisons selection - update them with samplesheet changes
+  observeEvent(dt_samplesheet(), {
+    req(dt_samplesheet())
+    i <- which(colnames(dt_samplesheet())%in%c('sample','fq1','fq2','RG'))
+    updateSelectizeInput(
+      session, "columnsToContrast",
+      choices  = sort(colnames(dt_samplesheet()[-i])),
+      selected = isolate(input$columnsToContrast)
+    )
+    updateSelectizeInput(
+      session, "covariateColumn",
+      choices  = sort(colnames(dt_samplesheet()[-i])),
+      selected = isolate(input$covariateColumn)
+    )
+    updateSelectizeInput(
+      session, "columnsToFilterOn",
+      choices  = sort(colnames(dt_samplesheet()[-i])),
+      selected = character(0)
+    )
+  })
+  observeEvent(input$columnsToContrast, {
+    req(input$columnsToContrast, dt_samplesheet())
+
+    vals <- sort(unique(na.omit(dt_samplesheet()[[input$columnsToContrast]])))
+
+    updateSelectizeInput(session, "baselineGrpContrast",
+                         choices = vals,
+                         label    = paste0("Select the baseline '", input$columnsToContrast, "'"),
+                         selected = character(0))
+
+    updateSelectizeInput(session, "relativeGrpContrast",
+                         choices = vals,
+                         label    = paste0("Select the relative '", input$columnsToContrast, "'"),
+                         selected = character(0))
+  })
+  observeEvent(input$columnsToFilterOn, {
+    # req(input$columnsToContrast, dt_samplesheet())
+
+    vals <- sort(unique(na.omit(dt_samplesheet()[[input$columnsToFilterOn]])))
+    activateItems('filterColumnLevel')
+    updateSelectizeInput(session, "filterColumnLevel",
+                         choices = vals,
+                         label    = paste0("Select a column to filter first"),
+                         selected = character(0))
+  })
+
 }
 
 
