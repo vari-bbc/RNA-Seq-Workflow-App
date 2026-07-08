@@ -161,10 +161,12 @@ ui <- UINav2(
             # --- Contrast definition group ---
             wellPanel(
               tags$h5("Build a contrast", style = "margin-top: 0; font-weight: 600;"),
-              tags$p("Comparisons are constructed as 'relative_group' vs 'baseline group'. Genes with expression higher in relative_grp than baseline_grp have fold change greater than 0. Normally wildtype/untreated/control is set as baseline group",
+              tags$p("Comparisons are constructed as 'relative_group' vs 'baseline group'. Genes with expression higher in relative_group than baseline_group have fold change greater than 0. Set wildtype/untreated/control as baseline group",
                      style = "margin-top: -8px; margin-bottom: 10px; color: #777; font-size: 13px;"),
+
               navSelect("columnsToContrast", "Select the samplesheet column to contrast", "Single", "Locked",
                         theChoices = NULL),
+              actionButton("do_all_pairwise", label=NULL, class = "btn-danger"),
               navSelect("relativeGrpContrast", "Select the relative group", "Single", "Locked",
                         theChoices = NULL),
               navSelect("baselineGrpContrast", "Select the baseline group", "Single", "Locked",
@@ -190,7 +192,9 @@ ui <- UINav2(
                          ),
                          style = "width: 100%; display: block; margin-bottom: 10px;"
             ),
-            tableOutput("contrastsTableOutput"),
+            # DTOutput("contrastsTableOutput"),
+            DTOutput("comparisonsSheet"),
+            actionButton("delete_btn", "Delete Selected Row(s)", class = "btn-danger"),
             # actionButton("editComparisons", "Optional: directly edit comparisons")
           )
         )
@@ -198,7 +202,7 @@ ui <- UINav2(
     ),
     nav_panel('step6',card( height = cardHeight,
         layout_sidebar(
-          sidebar = sidebar(position = "right",
+          sidebar = sidebar(position = "right",width = '66.67vw',
             navOutputText("workflowStarted"),
             verbatimTextOutput("job_status"),
             navOutputText("errorFilesEmail"),
@@ -314,7 +318,7 @@ server <- function(session, input, output) {
   })
   # Render the table
   output$comparisonsSheet <- renderDT({
-    datatable(dt_comparisons(), editable = "cell")
+    datatable(dt_comparisons(), editable = "cell",selection = "multiple",rownames = TRUE)
   })
 
   # Trigger the sample sheet popup
@@ -875,6 +879,9 @@ server <- function(session, input, output) {
   ## 5.1 Select Comparisons ----
   observeEvent(input$buildContrasts, {
     if(testing){repoPath <- '/fake/path/because/testing/1/'}
+    # only run if input$columnsToContrast, input$baselineGrpContrast and input$relavtiveGrpContrast have values != ''
+    req(input$columnsToContrast, input$baselineGrpContrast, input$relavtiveGrpContrast)
+
     output$contrastsInfo1 <- renderText({ paste0("Added comparison to ",repoPath,"/config/samplesheet/comparisons.tsv") })
     output$contrastsInfo2 <- renderText({
       paste(
@@ -886,6 +893,7 @@ server <- function(session, input, output) {
         'filterColumnLevel', input$filterColumnLevel
       )
     })
+
 
     comparisons <- build_comparisons_TSV(
       units = dt_samplesheet(),
@@ -902,9 +910,31 @@ server <- function(session, input, output) {
     message('class comparisons[[datatable]]',class(comparisons[['datatable']]))
     dt_comparisons((comparisons[['datatable']]))
     message('added with build_comparisons',class(comparisons[['datatable']]),dim(comparisons[['datatable']]))
-    output$contrastsTableOutput <- renderTable({ dt_comparisons() })
-
+    # output$contrastsTableOutput <- renderTable({ dt_comparisons() })
+    # output$contrastsTableOutput <- renderDT({ datatable(dt_comparisons(), editable = "cell" ,selection = "multiple") })
     activateItems(c("runWorkflow",'btn_next'))
+
+  })
+
+  observeEvent(input$do_all_pairwise, {
+    req(input$columnsToContrast)
+
+    comparisons <- build_all_pairwise_comparisons_TSV(
+      units = dt_samplesheet(),
+      comparisons = dt_comparisons(), # add it to this
+      columnsToContrast = input$columnsToContrast,
+      repoPath = repoPath
+    )
+    message('do_all_pairwise dt_comparisons dim: ', paste(dim(dt_comparisons()), collapse = "x"))
+    message('class comparisons[[datatable]]',class(comparisons[['datatable']]))
+
+    dt_comparisons((comparisons[['datatable']]))
+
+    # output$contrastsTableOutput <- renderDT({ datatable(dt_comparisons(), editable = "cell" ,selection = "multiple") })
+
+    deactivateItems("do_all_pairwise")
+
+    activateItems(c("runWorkflow", "btn_next"))
 
   })
 
@@ -921,9 +951,9 @@ server <- function(session, input, output) {
         args = c(
           "--mail-type=END",
           paste0('--mail-user=',email),
-          "-o", file.path(repoPath, globals$logSTDOUT),
-          "-e", file.path(repoPath, globals$logSTDERR),
-          script
+          "-o", shQuote(file.path(repoPath, globals$logSTDOUT)),
+          "-e", shQuote(file.path(repoPath, globals$logSTDERR)),
+          shQuote(script)
         ),
         stdout = TRUE,
         stderr = TRUE
@@ -970,28 +1000,49 @@ server <- function(session, input, output) {
       "squeue",
       args = c("-j", globals$job_id, "--noheader"),
       stdout = TRUE,
-      stderr = FALSE
+      stderr = TRUE
     )
 
-    # system2 returns exit code as an attribute when the command fails
     exit_code <- attr(squeue_output, "status")
-    job_finished <- length(squeue_output) == 0 || (!is.null(exit_code) && exit_code != 0)
+    cmd_failed <- !is.null(exit_code) && exit_code != 0
+    job_finished <- (length(squeue_output) == 0) && !cmd_failed
 
-    message("exit_code ", exit_code)
-    message("job_finished ",job_finished)
-    if (job_finished) {
-      output$job_status_refresh <- renderText({
-        paste0("Job complete. ","Could not find JOB ID ",globals$job_id,". Workflow is probably finished, but not neccessarily without error! Check log and error files carefully!")
-      })
-      output$job_status_refresh0 <- renderText({
-        paste0("Job complete. ","Could not find JOB ID ",globals$job_id,". Workflow is probably finished, but not neccessarily without error! Check log and error files carefully!")
-      })
+    job_finished_success <- file.exists(file.path(globals$repoPath,'results/multiqc/multiqc.html'))
+
+    message("squeue exit_code: ", if (is.null(exit_code)) 0 else exit_code)
+    # 2. Determine the precise status message
+    status_msg <- if (cmd_failed) {
+      paste0("Error checking job status. Slurm error code: ", exit_code)
+
+    } else if (job_finished_success) {
+      paste0(
+        "Job complete. Could not find JOB ID ", globals$job_id,
+        ". Workflow finished successfully. ",
+        "Check log and error files carefully!"
+      )
+    } else if (job_finished) {
+      paste0(
+        "Job complete. Could not find JOB ID ", globals$job_id,
+        ". Workflow had errors/did not run to complettion! ",
+        "Check log and error files carefully!"
+      )
     } else {
-      # Still running — parse the status field (column 5 typically)
-      status_line <- trimws(squeue_output[1])
-      output$job_status_refresh <- renderText(paste("Job still running:\n", status_line))
-      output$job_status_refresh0 <- renderText(paste("Job still running:\n", status_line))
+      # Clean up the output string (e.g., "PENDING" or "RUNNING")
+      job_state <- trimws(squeue_output[1])
+
+      if (job_state == "PENDING") {
+        paste0("Job is PENDING (waiting in the queue for resources).")
+      } else if (job_state == "RUNNING") {
+        paste0("Job is actively RUNNING.")
+      } else {
+        # Catches states like COMPLETING, SUSPENDED, etc.
+        paste0("Job status: ", job_state)
+      }
     }
+
+    # 3. Assign to your Shiny outputs
+    output$job_status_refresh  <- renderText({ status_msg })
+    output$job_status_refresh0 <- renderText({ status_msg })
   },ignoreInit = TRUE)
 
   ## 6.3 Open Results Folder ----
@@ -999,6 +1050,7 @@ server <- function(session, input, output) {
     baseName <- 'https://ondemand1.vai.zone/pun/sys/dashboard/files/fs/'
     path <- file.path(baseName, globals$repoPath, 'results')
     message('path: ', path)
+    # req(path)
     runjs(paste0("window.open('", path, "', '_blank');"))
   })
 
@@ -1006,6 +1058,7 @@ server <- function(session, input, output) {
   observeEvent(input$openLogSTDOUT, {
     baseName <- 'https://ondemand1.vai.zone/pun/sys/dashboard/files/fs/'
     path0 <- file.path(baseName, globals$repoPath, globals$logSTDOUT)
+    # req(path0)
     message('path0: ', path0)
     runjs(paste0("window.open('", path0, "', '_blank');"))
   })
@@ -1014,6 +1067,7 @@ server <- function(session, input, output) {
   observeEvent(input$openLogSTDERR, {
     baseName <- 'https://ondemand1.vai.zone/pun/sys/dashboard/files/fs/'
     path0 <- file.path(baseName, globals$repoPath, globals$logSTDERR)
+    # req(path0)
     message('path0: ', path0)
     runjs(paste0("window.open('", path0, "', '_blank');"))
   })
@@ -1021,6 +1075,7 @@ server <- function(session, input, output) {
   ## Print log STDOUT  ----
   observeEvent(input$printLogSTDOUT, {
     path1 <- file.path(globals$repoPath, globals$logSTDOUT)
+    req(file.exists(path1))
     message('STDOUT path1: ', path1)
     lines <- readLines(path1, warn = FALSE)
     tail_lines <- tail(lines, 15)
@@ -1033,6 +1088,7 @@ server <- function(session, input, output) {
   ## Print log STDERR  ----
   observeEvent(input$printLogSTDERR, {
     path1 <- file.path(globals$repoPath, globals$logSTDERR)
+    req(file.exists(path1))
     message('STDERR path1: ', path1)
     lines <- readLines(path1, warn = FALSE)
     tail_lines <- tail(lines, 15)
@@ -1166,15 +1222,24 @@ server <- function(session, input, output) {
     )
     updateSelectizeInput(
       session, "covariateColumn",
-      choices  = sort(colnames(dt_samplesheet()[-i])),
-      selected = isolate(input$covariateColumn)
+      choices = c("", sort(colnames(dt_samplesheet()[-i]))),
+      selected = "",
+      options = list(
+        allowEmptyOption = TRUE,   # <- lets "" show up as a selectable item
+        placeholder = "None"       # optional: nicer label than a blank row
+      )
     )
     updateSelectizeInput(
       session, "columnsToFilterOn",
-      choices  = sort(colnames(dt_samplesheet()[-i])),
-      selected = character(0)
+      choices = c("", sort(colnames(dt_samplesheet()[-i]))),
+      selected = "",
+      options = list(
+        allowEmptyOption = TRUE,   # <- lets "" show up as a selectable item
+        placeholder = "None"       # optional: nicer label than a blank row
+      )
     )
   })
+
   observeEvent(input$columnsToContrast, {
     req(input$columnsToContrast, dt_samplesheet())
 
@@ -1185,24 +1250,184 @@ server <- function(session, input, output) {
                          label    = paste0("Select the baseline '", input$columnsToContrast, "'"),
                          selected = character(0))
 
+    updateSelectizeInput(session, "do_all_pairwise",
+                         label    = paste0("Autogenerate pairwise comparisons for '", input$columnsToContrast, "'"),
+                         selected = character(0))
+
     updateSelectizeInput(session, "relativeGrpContrast",
                          choices = vals,
                          label    = paste0("Select the relative '", input$columnsToContrast, "'"),
                          selected = character(0))
+    activateItems("do_all_pairwise")
+
   })
+
   observeEvent(input$columnsToFilterOn, {
     # req(input$columnsToContrast, dt_samplesheet())
 
     vals <- sort(unique(na.omit(dt_samplesheet()[[input$columnsToFilterOn]])))
     activateItems('filterColumnLevel')
     updateSelectizeInput(session, "filterColumnLevel",
-                         choices = vals,
+                         choices = c("Not selected" = "", vals),
                          label    = paste0("I want this contrast to include only samples where '", input$columnsToFilterOn, "' is equal to"),
                          selected = character(0))
+  }, ignoreInit = TRUE)
+
+  observeEvent(input$delete_btn, {
+    selected_rows <- input$comparisonsSheet_rows_selected
+    req(selected_rows)
+
+    current_data <- dt_comparisons()
+    dt_comparisons(current_data[-selected_rows, , drop = FALSE])
   })
 
 }
 
+
+# Functions ----
+## build_comparisons
+build_comparisons_TSV <- function(
+    units = NULL,
+    comparisons = NULL,
+    columnsToContrast = NULL,
+    baselineGrpContrast = NULL,
+    relavtiveGrpContrast = NULL,
+    covariateColumn = NULL,
+    columnsToFilterOn = NULL,
+    filterColumnLevel = NULL,
+    repoPath = NULL
+) {
+
+  # these are the current columns for rnaseq_workflow
+  # comparison_name	group_test	group_reference	group_reg_formula	filterColumn	filterColumnLevel
+  formula1 <- NULL
+  name <- NULL
+  is_empty <- function(x) {
+    is.null(x) || length(x) == 0 || (length(x) == 1 && is.character(x) && x == "") || (length(x) == 1 && is.na(x))
+  }
+  if(!is_empty(covariateColumn) & !is_empty(filterColumnLevel)){
+    message('comparisons func: yes covariate, yes filter')
+    formula1 <- paste0('~',columnsToContrast,'+',covariateColumn)
+    name <- paste0(columnsToContrast,'_',relavtiveGrpContrast,'_vs_',baselineGrpContrast,'_covariate_',covariateColumn,'_',columnsToFilterOn,'_',filterColumnLevel)
+  }else if(!is_empty(covariateColumn)){
+    message('comparisons func: yes covariate, no filter')
+    formula1 <- paste0('~',columnsToContrast,'+',covariateColumn)
+    name <- paste0(columnsToContrast,'_',relavtiveGrpContrast,'_vs_',baselineGrpContrast,'_covariate_',covariateColumn)
+  }else if(!is_empty(filterColumnLevel)){
+    message('comparisons func: no covariate, yes filter')
+    formula1 <- paste0('~',columnsToContrast)
+    name <- paste0(columnsToContrast,'_',relavtiveGrpContrast,'_vs_',baselineGrpContrast,'_',columnsToFilterOn,'_',filterColumnLevel)
+  }else{
+    message('comparisons func: no covariate, no filter')
+    formula1 <- paste0('~',columnsToContrast)
+    name <- paste0(columnsToContrast,'_',relavtiveGrpContrast,'_vs_',baselineGrpContrast)
+  }
+
+  safe1 <- function(x) if (is.null(x) || length(x) == 0) NA_character_ else x
+
+  message(' lengths: name=', length(name),
+          ' group_test=', length(relavtiveGrpContrast),
+          ' group_reference=', length(baselineGrpContrast),
+          ' formula=', length(formula1),
+          ' filterColumn=', length(columnsToFilterOn),
+          ' filterColumnLevel=', length(filterColumnLevel))
+
+  tmp <- data.frame(
+    comparison_name = safe1(name),
+    group_test = safe1(relavtiveGrpContrast),
+    group_reference = safe1(baselineGrpContrast),
+    group_reg_formula = safe1(formula1),
+    filterColumn = safe1(columnsToFilterOn),
+    filterColumnLevel = safe1(filterColumnLevel),
+    stringsAsFactors = FALSE
+  )
+
+  # do checks that filtering won't result in <2 samples per group
+
+
+  message('comparisons dim',dim(tmp))
+  message('comparisons class',class(tmp))
+  if (is.null(comparisons)) {
+    message('comparisons is.null')
+    comparisons <- tmp
+  } else {
+    message('comparisons ! is.null')
+    # sanity check that column names match before rbinding
+    if (!identical(names(comparisons), names(tmp))) {
+      stop("Column names don't match between comparisons and new comparison: ",
+           paste(setdiff(union(names(comparisons), names(tmp)),
+                         intersect(names(comparisons), names(tmp))),
+                 collapse = ", "))
+    }
+    if(!tmp$comparison_name %in% comparisons$comparison_name){
+      comparisons <- rbind(comparisons, tmp)
+    }else{
+      comparisons <- comparisons
+    }
+  }
+
+    # not needed because reactive is populated with function return & written then
+  # if(!testing){
+  #   readr::write_delim(comparisons,file=file.path(repoPath,'config/samplesheet/comparisons.tsv'),
+  #             delim="\t",quote="none")
+  # }
+
+  return(
+    list(
+      'datatable' = comparisons
+    )
+  )
+}
+
+
+build_all_pairwise_comparisons_TSV <- function(
+    units = NULL,
+    comparisons = NULL,
+    columnsToContrast = NULL,
+    repoPath = NULL
+) {
+
+  tmp <- lapply(columnsToContrast, function(col) {
+    warning(paste("on Column", col))
+    group_levels <- unique(units[[col]])
+    message('class group_levels',class(group_levels))
+    message('str group_levels',str(group_levels))
+    message('group_levels',paste(group_levels,sep="|"))
+    if(length(group_levels)<2){stop(paste("Less than 2 group levels"))}
+    as.data.frame(t(combn(group_levels, 2))) |>
+      setNames(c("group_test", "group_reference")) |>
+      mutate(
+        column   = col,
+        comparison_name = paste0(col,'_',group_test, "_vs_", group_reference),
+        group_reg_formula = paste0('~',col),
+        filterColumn = NA_character_,
+        filterColumnLevel = NA_character_,
+      ) |>
+      select(comparison_name, group_test, group_reference, group_reg_formula,filterColumn,filterColumnLevel)
+  }) |>
+    bind_rows()
+
+  if (is.null(comparisons)) {
+    message('comparisons is.null')
+    comparisons <- tmp
+  } else {
+    message('comparisons ! is.null')
+    # sanity check that column names match before rbinding
+    if (!identical(names(comparisons), names(tmp))) {
+      stop("Column names don't match between comparisons and new comparison: ",
+           paste(setdiff(union(names(comparisons), names(tmp)),
+                         intersect(names(comparisons), names(tmp))),
+                 collapse = ", "))
+    }
+    comparisons <- rbind(comparisons, tmp)
+  }
+
+  return(
+    list(
+      'datatable' = comparisons
+    )
+  )
+}
 
 # ___________________ ----
 # Run App ----
