@@ -202,7 +202,7 @@ ui <- UINav2(
     ),
     nav_panel('step6',card( height = cardHeight,
         layout_sidebar(
-          sidebar = sidebar(position = "right",
+          sidebar = sidebar(position = "right",width = '66.67vw',
             navOutputText("workflowStarted"),
             verbatimTextOutput("job_status"),
             navOutputText("errorFilesEmail"),
@@ -951,9 +951,9 @@ server <- function(session, input, output) {
         args = c(
           "--mail-type=END",
           paste0('--mail-user=',email),
-          "-o", file.path(repoPath, globals$logSTDOUT),
-          "-e", file.path(repoPath, globals$logSTDERR),
-          script
+          "-o", shQuote(file.path(repoPath, globals$logSTDOUT)),
+          "-e", shQuote(file.path(repoPath, globals$logSTDERR)),
+          shQuote(script)
         ),
         stdout = TRUE,
         stderr = TRUE
@@ -1000,28 +1000,49 @@ server <- function(session, input, output) {
       "squeue",
       args = c("-j", globals$job_id, "--noheader"),
       stdout = TRUE,
-      stderr = FALSE
+      stderr = TRUE
     )
 
-    # system2 returns exit code as an attribute when the command fails
     exit_code <- attr(squeue_output, "status")
-    job_finished <- length(squeue_output) == 0 || (!is.null(exit_code) && exit_code != 0)
+    cmd_failed <- !is.null(exit_code) && exit_code != 0
+    job_finished <- (length(squeue_output) == 0) && !cmd_failed
 
-    message("exit_code ", exit_code)
-    message("job_finished ",job_finished)
-    if (job_finished) {
-      output$job_status_refresh <- renderText({
-        paste0("Job complete. ","Could not find JOB ID ",globals$job_id,". Workflow is probably finished, but not neccessarily without error! Check log and error files carefully!")
-      })
-      output$job_status_refresh0 <- renderText({
-        paste0("Job complete. ","Could not find JOB ID ",globals$job_id,". Workflow is probably finished, but not neccessarily without error! Check log and error files carefully!")
-      })
+    job_finished_success <- file.exists(file.path(globals$repoPath,'results/multiqc/multiqc.html'))
+
+    message("squeue exit_code: ", if (is.null(exit_code)) 0 else exit_code)
+    # 2. Determine the precise status message
+    status_msg <- if (cmd_failed) {
+      paste0("Error checking job status. Slurm error code: ", exit_code)
+
+    } else if (job_finished_success) {
+      paste0(
+        "Job complete. Could not find JOB ID ", globals$job_id,
+        ". Workflow finished successfully. ",
+        "Check log and error files carefully!"
+      )
+    } else if (job_finished) {
+      paste0(
+        "Job complete. Could not find JOB ID ", globals$job_id,
+        ". Workflow had errors/did not run to complettion! ",
+        "Check log and error files carefully!"
+      )
     } else {
-      # Still running — parse the status field (column 5 typically)
-      status_line <- trimws(squeue_output[1])
-      output$job_status_refresh <- renderText(paste("Job still running:\n", status_line))
-      output$job_status_refresh0 <- renderText(paste("Job still running:\n", status_line))
+      # Clean up the output string (e.g., "PENDING" or "RUNNING")
+      job_state <- trimws(squeue_output[1])
+
+      if (job_state == "PENDING") {
+        paste0("Job is PENDING (waiting in the queue for resources).")
+      } else if (job_state == "RUNNING") {
+        paste0("Job is actively RUNNING.")
+      } else {
+        # Catches states like COMPLETING, SUSPENDED, etc.
+        paste0("Job status: ", job_state)
+      }
     }
+
+    # 3. Assign to your Shiny outputs
+    output$job_status_refresh  <- renderText({ status_msg })
+    output$job_status_refresh0 <- renderText({ status_msg })
   },ignoreInit = TRUE)
 
   ## 6.3 Open Results Folder ----
@@ -1029,6 +1050,7 @@ server <- function(session, input, output) {
     baseName <- 'https://ondemand1.vai.zone/pun/sys/dashboard/files/fs/'
     path <- file.path(baseName, globals$repoPath, 'results')
     message('path: ', path)
+    # req(path)
     runjs(paste0("window.open('", path, "', '_blank');"))
   })
 
@@ -1036,6 +1058,7 @@ server <- function(session, input, output) {
   observeEvent(input$openLogSTDOUT, {
     baseName <- 'https://ondemand1.vai.zone/pun/sys/dashboard/files/fs/'
     path0 <- file.path(baseName, globals$repoPath, globals$logSTDOUT)
+    # req(path0)
     message('path0: ', path0)
     runjs(paste0("window.open('", path0, "', '_blank');"))
   })
@@ -1044,6 +1067,7 @@ server <- function(session, input, output) {
   observeEvent(input$openLogSTDERR, {
     baseName <- 'https://ondemand1.vai.zone/pun/sys/dashboard/files/fs/'
     path0 <- file.path(baseName, globals$repoPath, globals$logSTDERR)
+    # req(path0)
     message('path0: ', path0)
     runjs(paste0("window.open('", path0, "', '_blank');"))
   })
@@ -1051,6 +1075,7 @@ server <- function(session, input, output) {
   ## Print log STDOUT  ----
   observeEvent(input$printLogSTDOUT, {
     path1 <- file.path(globals$repoPath, globals$logSTDOUT)
+    req(file.exists(path1))
     message('STDOUT path1: ', path1)
     lines <- readLines(path1, warn = FALSE)
     tail_lines <- tail(lines, 15)
@@ -1063,6 +1088,7 @@ server <- function(session, input, output) {
   ## Print log STDERR  ----
   observeEvent(input$printLogSTDERR, {
     path1 <- file.path(globals$repoPath, globals$logSTDERR)
+    req(file.exists(path1))
     message('STDERR path1: ', path1)
     lines <- readLines(path1, warn = FALSE)
     tail_lines <- tail(lines, 15)
