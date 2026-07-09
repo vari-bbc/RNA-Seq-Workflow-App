@@ -151,7 +151,7 @@ ui <- UINav2(
         layout_sidebar(
           sidebar = sidebar(position = "right",
             navButton("showSampleSheet5","Show/edit Sample Sheet"),
-            navButton("showComparisonsSheet1","Show/edit Comparisons Sheet"),
+            navButton("showComparisonsSheet1","Show Comparisons Sheet"),
             navOutputText("contrastsInfo1"),
             navOutputText("contrastsInfo2"),
             verbatimTextOutput("filepath"),
@@ -166,7 +166,7 @@ ui <- UINav2(
 
               navSelect("columnsToContrast", "Select the samplesheet column to contrast", "Single", "Locked",
                         theChoices = NULL),
-              actionButton("do_all_pairwise", label=NULL, class = "btn-danger"),
+              actionButton("do_all_pairwise", label=NULL, class = "btn-default"),
               navSelect("relativeGrpContrast", "Select the relative group", "Single", "Locked",
                         theChoices = NULL),
               navSelect("baselineGrpContrast", "Select the baseline group", "Single", "Locked",
@@ -190,10 +190,11 @@ ui <- UINav2(
                            bsicons::bs_icon("cart-plus", size = "1.5em"),
                            tags$span("Add this differential comparison", style = "font-size: 1.4rem; vertical-align: middle;")
                          ),
+                         class = "btn-success",
                          style = "width: 100%; display: block; margin-bottom: 10px;"
             ),
             # DTOutput("contrastsTableOutput"),
-            DTOutput("comparisonsSheet"),
+            DTOutput("comparisonsSheetMain"),
             actionButton("delete_btn", "Delete Selected Row(s)", class = "btn-danger"),
             # actionButton("editComparisons", "Optional: directly edit comparisons")
           )
@@ -203,14 +204,28 @@ ui <- UINav2(
     nav_panel('step6',card( height = cardHeight,
         layout_sidebar(
           sidebar = sidebar(position = "right",width = '66.67vw',
-            navOutputText("workflowStarted"),
-            verbatimTextOutput("job_status"),
-            navOutputText("errorFilesEmail"),
-            verbatimTextOutput("job_status_refresh0"),
-            verbatimTextOutput("openLogSTDOUTMessage0"),
-            verbatimTextOutput("openLogSTDOUTContent0"),
-            verbatimTextOutput("openLogSTDERRMessage0"),
-            verbatimTextOutput("openLogSTDERRContent0")
+            wellPanel(
+              tags$h5("Job Information", style = "margin-top: 0; font-weight: 600;"),
+              navOutputText("workflowStarted"),
+              # verbatimTextOutput("job_status"),
+              navOutputText("errorFilesEmail"),
+              navOutputText("errorFilesEmail2"),
+              navOutputText("errorFilesEmail3"),
+            ),
+            wellPanel(
+              tags$h5("Current Job Status", style = "margin-top: 0; font-weight: 600;"),
+              verbatimTextOutput("job_status_refresh0"),
+            ),
+            wellPanel(
+              tags$h5("STDOUT", style = "margin-top: 0; font-weight: 600;"),
+              verbatimTextOutput("openLogSTDOUTMessage0"),
+              verbatimTextOutput("openLogSTDOUTContent0")
+            ),
+            wellPanel(
+              tags$h5("STDERR", style = "margin-top: 0; font-weight: 600;"),
+              verbatimTextOutput("openLogSTDERRMessage0"),
+              verbatimTextOutput("openLogSTDERRContent0")
+            )
           ),
           actionButton("runWorkflow",tagList(
               bsicons::bs_icon("bar-chart-line", size = "2em"),
@@ -317,8 +332,16 @@ server <- function(session, input, output) {
     datatable(dt_samplesheet(), editable = "cell")
   })
   # Render the table
-  output$comparisonsSheet <- renderDT({
+  # output$comparisonsSheet <- renderDT({
+  #   datatable(dt_comparisons(), editable = "cell",selection = "multiple",rownames = TRUE)
+  # })
+  # server - render BOTH from the same reactive
+  output$comparisonsSheetMain <- renderDT({
     datatable(dt_comparisons(), editable = "cell",selection = "multiple",rownames = TRUE)
+  })
+
+  output$comparisonsSheetModal <- renderDT({
+    datatable(dt_comparisons(),selection = "multiple",rownames = TRUE)
   })
 
   # Trigger the sample sheet popup
@@ -362,10 +385,10 @@ server <- function(session, input, output) {
     ))
   })
 
-   observeEvent(input$showComparisonsSheet1, {
+  observeEvent(input$showComparisonsSheet1, {
     showModal(modalDialog(
       title = "Comparisons",
-      DTOutput("comparisonsSheet"),
+      DTOutput("comparisonsSheetModal"),
       easyClose = TRUE,
       size = "xl",
       footer = modalButton("Close")
@@ -751,6 +774,14 @@ server <- function(session, input, output) {
     deactivateItems('downloadRepo') # disable double clicking
     startSection("Download github repo")
 
+    shinyalert::shinyalert(
+      title = "Working...",
+      text = "Downloading repository, this may take a minute.",
+      type = "info",
+      closeOnClickOutside = FALSE,
+      showConfirmButton = FALSE
+    )
+
     # == Inputs
     fastqDir <- parseDirPath(rootDir,input$fastqPathSelect)
     outputDir <- parseDirPath(rootDir,input$outputPathSelect)
@@ -774,7 +805,7 @@ server <- function(session, input, output) {
 
       # modify bin/run_snake.sh
       script <- readLines(file.path(repoPath,"bin/run_snake.sh"))
-      script <- gsub("cd \\$SLURM_SUBMIT_DIR", paste("cd", repoPath), script)
+      script <- gsub("cd \\$SLURM_SUBMIT_DIR", paste("cd", shQuote(repoPath)), script)
       # script <- gsub("cd \\$SLURM_SUBMIT_DIR", 'sleep 10; exit 1;', script)
       writeLines(script, file.path(repoPath,"bin/run_snake_APP.sh"))
 
@@ -812,7 +843,7 @@ server <- function(session, input, output) {
     delim="\t",quote="none")
     output$wroteUnitsTSV <- renderText({ "units.tsv saved" })
 
-
+    shinyalert::closeAlert()
     if (globals$checks$gitCheck){
       shinyalert::shinyalert(
         title = "Success!",
@@ -878,22 +909,31 @@ server <- function(session, input, output) {
 
   ## 5.1 Select Comparisons ----
   observeEvent(input$buildContrasts, {
+    message('fired buildContrasts')
     if(testing){repoPath <- '/fake/path/because/testing/1/'}
     # only run if input$columnsToContrast, input$baselineGrpContrast and input$relavtiveGrpContrast have values != ''
-    req(input$columnsToContrast, input$baselineGrpContrast, input$relavtiveGrpContrast)
 
-    output$contrastsInfo1 <- renderText({ paste0("Added comparison to ",repoPath,"/config/samplesheet/comparisons.tsv") })
-    output$contrastsInfo2 <- renderText({
-      paste(
-        'columnsToContrast', input$columnsToContrast, '<br>',
-        'baselineGrpContrast', input$baselineGrpContrast, '<br>',
-        'relavtiveGrpContrast', input$relavtiveGrpContrast, '<br>',
-        'covariateColumn', input$covariateColumn, '<br>',
-        'columnsToFilterOn', input$columnsToFilterOn, '<br>',
-        'filterColumnLevel', input$filterColumnLevel
-      )
-    })
+    # message('input$$columnsToContrast',input$columnsToContrast)
+    # message('input$$baselineGrpContrast',input$baselineGrpContrast)
+    # message('input$$relavtiveGrpContrast',input$relativeGrpContrast)
 
+    missingFields <- c(
+      "Contrast column"   = is.null(input$columnsToContrast)    || input$columnsToContrast    == "",
+      "Baseline group"    = is.null(input$baselineGrpContrast)  || input$baselineGrpContrast  == "",
+      "Relative group"    = is.null(input$relativeGrpContrast)  || input$relativeGrpContrast  == ""
+    )
+
+    if (any(missingFields)) {
+      missingNames <- names(missingFields)[missingFields]
+      output$contrastsInfo1 <- renderText({
+        paste0("Please select: ", paste(missingNames, collapse = ", "))
+      })
+      req(FALSE)  # stop here, equivalent to blocking further execution
+    } else {
+      output$contrastsInfo1 <- renderText({ "" })  # clear old message if all good
+    }
+
+    req(input$columnsToContrast, input$baselineGrpContrast, input$relativeGrpContrast)
 
     comparisons <- build_comparisons_TSV(
       units = dt_samplesheet(),
@@ -906,12 +946,17 @@ server <- function(session, input, output) {
       filterColumnLevel = input$filterColumnLevel,
       repoPath = repoPath
     )
+
+    if(comparisons[['message']]==1){
+      output$contrastsInfo1 <- renderText({ paste0("Added comparison!") })
+    }else{
+      output$contrastsInfo1 <- renderText({ comparisons[['message']] })
+    }
+
     message('class comparions',class(comparisons))
     message('class comparisons[[datatable]]',class(comparisons[['datatable']]))
     dt_comparisons((comparisons[['datatable']]))
     message('added with build_comparisons',class(comparisons[['datatable']]),dim(comparisons[['datatable']]))
-    # output$contrastsTableOutput <- renderTable({ dt_comparisons() })
-    # output$contrastsTableOutput <- renderDT({ datatable(dt_comparisons(), editable = "cell" ,selection = "multiple") })
     activateItems(c("runWorkflow",'btn_next'))
 
   })
@@ -921,7 +966,7 @@ server <- function(session, input, output) {
 
     comparisons <- build_all_pairwise_comparisons_TSV(
       units = dt_samplesheet(),
-      comparisons = dt_comparisons(), # add it to this
+      comparisons = dt_comparisons(),
       columnsToContrast = input$columnsToContrast,
       repoPath = repoPath
     )
@@ -929,8 +974,6 @@ server <- function(session, input, output) {
     message('class comparisons[[datatable]]',class(comparisons[['datatable']]))
 
     dt_comparisons((comparisons[['datatable']]))
-
-    # output$contrastsTableOutput <- renderDT({ datatable(dt_comparisons(), editable = "cell" ,selection = "multiple") })
 
     deactivateItems("do_all_pairwise")
 
@@ -960,12 +1003,14 @@ server <- function(session, input, output) {
       )
       job_id <- trimws(sub("Submitted batch job ", "", sys2_output))
       globals$job_id <- job_id
-      output$workflowStarted <- renderText({ paste(script,'successfully sumitted to SLURM')})
+      output$workflowStarted <- renderText({ paste('SLURM JOBID',job_id)})
       output$job_status <- renderText({
         squeue_output <- system2("squeue", args = c("-j", job_id), stdout = TRUE)
         paste(squeue_output, collapse = "\n")
       })
-      output$errorFilesEmail <- renderText({ paste0('An email will be sent to ',email,' when JOBID ',job_id,' is finished.\nSLURM output and error files are ',globals$logSTDOUT,' and ',globals$logSTDERR,' in ',repoPath) })
+      output$errorFilesEmail <- renderText({ paste0('An email will be sent to ',email,' when JOBID ',job_id,' is finished.')})
+      output$errorFilesEmail2 <- renderText({ paste0('SLURM STDOUT: ',file.path(repoPath,globals$logSTDOUT)) })
+      output$errorFilesEmail3 <- renderText({ paste0('SLURM STDERR: ',file.path(repoPath,globals$logSTDERR)) })
       deactivateItems("runWorkflow") # don't let user run again if already launched
       activateItems(c("checkStatus","printLogSTDERR","printLogSTDOUT","openLogSTDERR","openLogSTDOUT","downLoadFinalReport","openResults"))
       shinyalert(
@@ -1007,7 +1052,7 @@ server <- function(session, input, output) {
     cmd_failed <- !is.null(exit_code) && exit_code != 0
     job_finished <- (length(squeue_output) == 0) && !cmd_failed
 
-    job_finished_success <- file.exists(file.path(globals$repoPath,'results/multiqc/multiqc.html'))
+    job_finished_success <- file.exists(file.path(globals$repoPath,'results/multiqc/multiqc_report.html'))
 
     message("squeue exit_code: ", if (is.null(exit_code)) 0 else exit_code)
     # 2. Determine the precise status message
@@ -1017,13 +1062,13 @@ server <- function(session, input, output) {
     } else if (job_finished_success) {
       paste0(
         "Job complete. Could not find JOB ID ", globals$job_id,
-        ". Workflow finished successfully. ",
+        ". Workflow finished successfully because results/multiqc/multiqc_report.html exists. ",
         "Check log and error files carefully!"
       )
     } else if (job_finished) {
       paste0(
         "Job complete. Could not find JOB ID ", globals$job_id,
-        ". Workflow had errors/did not run to complettion! ",
+        ". Workflow had errors/did not run to completion! ",
         "Check log and error files carefully!"
       )
     } else {
@@ -1240,6 +1285,15 @@ server <- function(session, input, output) {
     )
   })
 
+  observeEvent(dt_comparisons(), {
+    req(globals$checks$gitCheck==TRUE)
+    readr::write_delim(dt_comparisons(),
+                       file=file.path(globals$repoPath,'config/samplesheet/comparisons.tsv'),
+                       delim = "\t"
+    )
+  }, ignoreInit = TRUE)
+
+
   observeEvent(input$columnsToContrast, {
     req(input$columnsToContrast, dt_samplesheet())
 
@@ -1274,12 +1328,14 @@ server <- function(session, input, output) {
   }, ignoreInit = TRUE)
 
   observeEvent(input$delete_btn, {
-    selected_rows <- input$comparisonsSheet_rows_selected
+    message('detele_btn clicked')
+    selected_rows <- input$comparisonsSheetMain_rows_selected
     req(selected_rows)
 
     current_data <- dt_comparisons()
     dt_comparisons(current_data[-selected_rows, , drop = FALSE])
   })
+
 
 }
 
@@ -1297,7 +1353,7 @@ build_comparisons_TSV <- function(
     filterColumnLevel = NULL,
     repoPath = NULL
 ) {
-
+  myMessage <- 1 # if not changed a 1 will report success
   # these are the current columns for rnaseq_workflow
   # comparison_name	group_test	group_reference	group_reg_formula	filterColumn	filterColumnLevel
   formula1 <- NULL
@@ -1362,19 +1418,15 @@ build_comparisons_TSV <- function(
     if(!tmp$comparison_name %in% comparisons$comparison_name){
       comparisons <- rbind(comparisons, tmp)
     }else{
+      myMessage <- 'Not added, comparison already exists!'
       comparisons <- comparisons
     }
   }
 
-    # not needed because reactive is populated with function return & written then
-  # if(!testing){
-  #   readr::write_delim(comparisons,file=file.path(repoPath,'config/samplesheet/comparisons.tsv'),
-  #             delim="\t",quote="none")
-  # }
-
   return(
     list(
-      'datatable' = comparisons
+      'datatable' = comparisons,
+      'message' = myMessage
     )
   )
 }
