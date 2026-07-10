@@ -4,7 +4,7 @@
 if (!require("pacman", quietly = TRUE))
     install.packages("pacman", repos = "https://cloud.r-project.org")
 
-testing <- 0
+testing <- 1
 ## 1.0 Load Libraries ----
 # change back to individual loads
 pacman::p_load(shiny,bslib,shinyjs,shinyWidgets,bsicons,plotly,DT,readr,
@@ -69,7 +69,7 @@ ui <- UINav2(
     ),
     nav_panel("step2",
       card( height = cardHeight,
-        layout_sidebar( sidebar = sidebar(position = "right",
+        layout_sidebar( sidebar = sidebar(position = "right",width = '33.33vw',
           navButton("showSampleSheet2","Show/edit Sample Sheet"),
           navOutputText("fastqDirText"),
           navOutputText("fq1Found"),
@@ -95,7 +95,7 @@ ui <- UINav2(
     nav_panel("step3",
       card( height = cardHeight,
         layout_sidebar(
-          sidebar = sidebar(position = "right",
+          sidebar = sidebar(position = "right",width = '33.33vw',
             navButton("showSampleSheet3","Show/edit Sample Sheet"),
             navOutputText("outputErrorText"),
             navOutputText("outputErrorText2"),
@@ -125,7 +125,7 @@ ui <- UINav2(
     ),
     nav_panel("step4",card( height = cardHeight,
         layout_sidebar(
-          sidebar = sidebar(position = "right",
+          sidebar = sidebar(position = "right",width = '33.33vw',
             navButton("showSampleSheet4","Show/edit Sample Sheet"),
             p("Choose the reference, species, and analysis settings before saving the config file.")
           ),
@@ -149,7 +149,7 @@ ui <- UINav2(
     ),
     nav_panel("step5",card( height = cardHeight,
         layout_sidebar(
-          sidebar = sidebar(position = "right",
+          sidebar = sidebar(position = "right",width = '33.33vw',
             navButton("showSampleSheet5","Show/edit Sample Sheet"),
             navButton("showComparisonsSheet1","Show Comparisons Sheet"),
             navOutputText("contrastsInfo1"),
@@ -236,9 +236,9 @@ ui <- UINav2(
           actionButton("checkStatus","Refresh Job Status"),
           # actionButton("printLogSTDOUT","Display Snakemake log (STDOUT) file"),
           actionButton("printLogSTDERR","Display Snakemake error (STDERR) file"),
-          actionButton("openResults","Open the results folder"),
           actionButton("openLogSTDOUT","Open Snakemake log (STDOUT) file"),
           actionButton("openLogSTDERR","Open the Snakemake error (STDERR) file"),
+          actionButton("openResults","Open results folder"),
           downloadButton("downLoadFinalReport0", "Download Final Report")
         )
       )
@@ -275,9 +275,9 @@ ui <- UINav2(
           actionButton("checkStatus2","Click here to refresh job status"),
           # actionButton("printLogSTDOUT","Display Snakemake log (STDOUT) file"),
           actionButton("printLogSTDERR","Display Snakemake error (STDERR) file"),
-          actionButton("openResults","Open the results folder"),
           actionButton("openLogSTDOUT","Open Snakemake log (STDOUT) file"),
           actionButton("openLogSTDERR","Open the Snakemake error (STDERR) file"),
+          actionButton("openResults","Open results folder"),
           downloadButton("downLoadFinalReport", "Download Report") #|> shinyjs::disabled()
         )
       )
@@ -1076,6 +1076,7 @@ server <- function(session, input, output) {
       # paste0("Error checking job status. Slurm error code: ", exit_code)
       shinyjs::show("downLoadFinalReport")
       shinyjs::show("downLoadFinalReport0")
+      activateItems('')
       paste0("Workflow finished successfully!")
     } else if (cmd_failed){
       paste0("Error checking job status. Slurm error code: ", exit_code,'. Job did not finish successfully, contact bbc@vai.org')
