@@ -129,10 +129,10 @@ ui <- UINav2(
             navButton("showSampleSheet4","Show/edit Sample Sheet"),
             p("Choose the reference, species, and analysis settings before saving the config file.")
           ),
-          navSelect("refVersions", "Reference Version", "Single", "Locked",
-                    theChoices = refVersionChoices),
           navSelect("speciesSelect","Select the Species & Annotation", "Single", "Locked",
                     theChoices = speciesSelectChoices),
+          navSelect("refVersions", "Reference Version", "Single", "Locked",
+                    theChoices = refVersionChoices),
           navNumeric("fdrCutoff","False discover rate", 0.01, tooltipText = "Default: 0.01",min=0,max=1),
           navSelect("pairedSingle","Paired-end or single-end genomics library", "Single", "Locked",
                     theChoices = c("Paired End","Single End")),
@@ -213,46 +213,47 @@ ui <- UINav2(
               navOutputText("errorFilesEmail3"),
             ),
             wellPanel(
-              tags$h5("Current Job Status", style = "margin-top: 0; font-weight: 600;"),
+              tags$h5("Job Status", style = "margin-top: 0; font-weight: 600;"),
+              navOutputText("job_status_plain_english"),
               verbatimTextOutput("job_status_refresh0"),
             ),
-            wellPanel(
-              tags$h5("STDOUT", style = "margin-top: 0; font-weight: 600;"),
-              verbatimTextOutput("openLogSTDOUTMessage0"),
-              verbatimTextOutput("openLogSTDOUTContent0")
-            ),
+            # wellPanel(
+            #   tags$h5("STDOUT", style = "margin-top: 0; font-weight: 600;"),
+            #   verbatimTextOutput("openLogSTDOUTMessage0"),
+            #   verbatimTextOutput("openLogSTDOUTContent0")
+            # ),
             wellPanel(
               tags$h5("STDERR", style = "margin-top: 0; font-weight: 600;"),
               verbatimTextOutput("openLogSTDERRMessage0"),
               verbatimTextOutput("openLogSTDERRContent0")
-            )
+            ),
           ),
           actionButton("runWorkflow",tagList(
               bsicons::bs_icon("bar-chart-line", size = "2em"),
               tags$span("Start Snakemake RNAseq Workflow", style = "font-size: 1.6rem; vertical-align: left;")
             )
           ),
-          actionButton("checkStatus","Click here to refresh job status"),
-          actionButton("printLogSTDOUT","Display Snakemake log (STDOUT) file"),
+          actionButton("checkStatus","Refresh Job Status"),
+          # actionButton("printLogSTDOUT","Display Snakemake log (STDOUT) file"),
           actionButton("printLogSTDERR","Display Snakemake error (STDERR) file"),
           actionButton("openResults","Open the results folder"),
           actionButton("openLogSTDOUT","Open Snakemake log (STDOUT) file"),
           actionButton("openLogSTDERR","Open the Snakemake error (STDERR) file"),
-          downloadButton("downLoadFinalReport", "Download Results")
+          downloadButton("downLoadFinalReport0", "Download Final Report")
         )
       )
     ),
     nav_panel("stepb1",
       card( height = cardHeight,
         layout_sidebar(
-          sidebar = sidebar(position = "right",
-            verbatimTextOutput("chosenExistingDirText")
+          sidebar = sidebar(position = "right",width = '66.67vw',
+            verbatimTextOutput("chosenExistingDirText"),
           ),
           div(
             shinyDirButton(
               id    = "selectExistingWorkflow",
-              label = "Select an existing workflow",
-              title = "Select an existing workflow",
+              label = "Select an existing workflow directory",
+              title = "Select an existing workflow directory",
               icon  = bsicons::bs_icon("folder-plus", size = "1.5em"),
               class = "btn-default",
               style = "font-size: 1.5rem; padding: 0.75rem 1.5rem;"
@@ -264,7 +265,7 @@ ui <- UINav2(
     nav_panel('stepb2',
       card( height = cardHeight,
         layout_sidebar(
-          sidebar = sidebar(position = "right",
+          sidebar = sidebar(position = "right",width = '66.67vw',
             verbatimTextOutput("job_status_refresh"),
             verbatimTextOutput("openLogSTDOUTMessage"),
             verbatimTextOutput("openLogSTDOUTContent"),
@@ -272,7 +273,7 @@ ui <- UINav2(
             verbatimTextOutput("openLogSTDERRContent")
           ),
           actionButton("checkStatus2","Click here to refresh job status"),
-          actionButton("printLogSTDOUT","Display Snakemake log (STDOUT) file"),
+          # actionButton("printLogSTDOUT","Display Snakemake log (STDOUT) file"),
           actionButton("printLogSTDERR","Display Snakemake error (STDERR) file"),
           actionButton("openResults","Open the results folder"),
           actionButton("openLogSTDOUT","Open Snakemake log (STDOUT) file"),
@@ -294,6 +295,15 @@ ui <- UINav2(
              style = "text-align: center; padding: 15px; border-top: 1px solid #ddd; margin-top: 20px; color: #666;"
       )
     )
+  ),
+  tags$head(
+    tags$style(HTML("
+    a.shiny-download-link.shinyjs-disabled {
+      pointer-events: none !important;
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  "))
   )
 )
 
@@ -398,6 +408,8 @@ server <- function(session, input, output) {
   observe({
     # Deactivate buttons that need other things to function
     if(!testing){
+      shinyjs::hide("downLoadFinalReport0")
+      shinyjs::hide("downLoadFinalReport")
       deactivateItems(
         c(
           "fastqPathSelect",
@@ -412,7 +424,8 @@ server <- function(session, input, output) {
           "printLogSTDERR",
           "openLogSTDERR",
           "openLogSTDOUT",
-          "downLoadFinalReport",
+          # "downLoadFinalReport",
+          # "downLoadFinalReport0",
           "openResults",
           'filterColumnLevel',
           #
@@ -806,6 +819,7 @@ server <- function(session, input, output) {
       # modify bin/run_snake.sh
       script <- readLines(file.path(repoPath,"bin/run_snake.sh"))
       script <- gsub("cd \\$SLURM_SUBMIT_DIR", paste("cd", shQuote(repoPath)), script)
+      if(testing){script <- gsub("partition=long", "partition=bbc", script)}
       # script <- gsub("cd \\$SLURM_SUBMIT_DIR", 'sleep 10; exit 1;', script)
       writeLines(script, file.path(repoPath,"bin/run_snake_APP.sh"))
 
@@ -892,7 +906,7 @@ server <- function(session, input, output) {
       run_rseqc          = as.logical(rSeqC),
       run_vis_bigwig          = as.logical(visBigWig)
     )
-    showNotification(paste0("YAML created in ",outputDir,'/rnaseq_workflow/config/config.yaml'), type = "message")
+    # showNotification(paste0("YAML created in ",outputDir,'/rnaseq_workflow/config/config.yaml'), type = "message")
 
     shinyalert::shinyalert(
       title = "Saved!",
@@ -1012,7 +1026,7 @@ server <- function(session, input, output) {
       output$errorFilesEmail2 <- renderText({ paste0('SLURM STDOUT: ',file.path(repoPath,globals$logSTDOUT)) })
       output$errorFilesEmail3 <- renderText({ paste0('SLURM STDERR: ',file.path(repoPath,globals$logSTDERR)) })
       deactivateItems("runWorkflow") # don't let user run again if already launched
-      activateItems(c("checkStatus","printLogSTDERR","printLogSTDOUT","openLogSTDERR","openLogSTDOUT","downLoadFinalReport","openResults"))
+      activateItems(c("checkStatus","printLogSTDERR","printLogSTDOUT","openLogSTDERR","openLogSTDOUT","openResults"))
       shinyalert(
         title = "Workflow Launched!",
         text  = paste("\n\n","Please contact bbc@vai.org with questions"),
@@ -1053,13 +1067,22 @@ server <- function(session, input, output) {
     job_finished <- (length(squeue_output) == 0) && !cmd_failed
 
     job_finished_success <- file.exists(file.path(globals$repoPath,'results/multiqc/multiqc_report.html'))
-
+    message("job_finished_success: ",job_finished_success)
+    # if(job_finished_success || testing){}
     message("squeue exit_code: ", if (is.null(exit_code)) 0 else exit_code)
+    status_msg_plain_english <- ''
     # 2. Determine the precise status message
-    status_msg <- if (cmd_failed) {
-      paste0("Error checking job status. Slurm error code: ", exit_code)
-
-    } else if (job_finished_success) {
+    status_msg <- if (cmd_failed && job_finished_success) {
+      # paste0("Error checking job status. Slurm error code: ", exit_code)
+      shinyjs::show("downLoadFinalReport")
+      shinyjs::show("downLoadFinalReport0")
+      paste0("Workflow finished successfully!")
+    } else if (cmd_failed){
+      paste0("Error checking job status. Slurm error code: ", exit_code,'. Job did not finish successfully, contact bbc@vai.org')
+    }else if (job_finished_success) {
+      message('activating downLoadFinalReport')
+      shinyjs::show("downLoadFinalReport")
+      shinyjs::show("downLoadFinalReport0")
       paste0(
         "Job complete. Could not find JOB ID ", globals$job_id,
         ". Workflow finished successfully because results/multiqc/multiqc_report.html exists. ",
@@ -1081,12 +1104,14 @@ server <- function(session, input, output) {
         paste0("Job is actively RUNNING.")
       } else {
         # Catches states like COMPLETING, SUSPENDED, etc.
+        # status_msg_plain_english <- 'Job Running ... '
         paste0("Job status: ", job_state)
       }
     }
 
     # 3. Assign to your Shiny outputs
     output$job_status_refresh  <- renderText({ status_msg })
+    output$job_status_plain_english <- renderText({ status_msg_plain_english })
     output$job_status_refresh0 <- renderText({ status_msg })
   },ignoreInit = TRUE)
 
@@ -1097,6 +1122,7 @@ server <- function(session, input, output) {
     message('path: ', path)
     # req(path)
     runjs(paste0("window.open('", path, "', '_blank');"))
+
   })
 
   ## Open log STDOUT  ----
@@ -1147,6 +1173,7 @@ server <- function(session, input, output) {
   ## Select Existing Output Folder ----
   shinyDirChoose(input, "selectExistingWorkflow", roots = rootDir, session = session, filetypes = character(0),
                  allowDirCreate = TRUE)
+
   observeEvent(input$selectExistingWorkflow,{
     outputDir <- parseDirPath(rootDir,input$selectExistingWorkflow)
     message('outputDir ',outputDir)
@@ -1175,20 +1202,40 @@ server <- function(session, input, output) {
       }
 
 
-    }else{
+    }else if(file.exists(file.path(outputDir,'app.yaml'))){
+      message('does match rnaseq ')
       # checks out because folder matches rnaseq_workflow exactly
       globals$repoPath <- outputDir
       globals$resultsFolder <- file.path(outputDir,"results/make_final_report/BBC_RNAseq_Report")
       output$chosenExistingDirText <- renderText({ paste('Selected workflow folder:',globals$repoPath,"\n")  })
-      globals$job_id <- read_yaml(file.path(globals$selectExistingWorkflow,'app.yaml'))$job_id
+      globals$job_id <- read_yaml(file.path(globals$repoPath,'app.yaml'))$job_id
       activateItems(c('btn_next'))
+    }else{
+      shinyalert(
+        title = paste0(outputDir," is not an app-generated rnaseq_workflow!"),
+        text  = paste("\n\n","Please contact bbc@vai.org with questions"),
+        type  = "error"
+      )
     }
 
     message('value of globals$job_id ',globals$job_id)
     message('value of globals$repoPath ',globals$repoPath)
   })
 
-
+  ## 6.2 Download Final Report ----
+  output$downLoadFinalReport0 <- downloadHandler(
+    filename = function() {
+      "BBC_RNAseq_Report.zip"
+    },
+    content = function(file) {
+      req(dir.exists(globals$resultsFolder) || file.exists(globals$resultsFolder))
+      zip(
+        zipfile = file,
+        files = globals$resultsFolder,
+        flags = "-r"   # recursive
+      )
+    }
+  )
   ## 6.2 Download Final Report ----
   output$downLoadFinalReport <- downloadHandler(
     filename = function() {
@@ -1202,24 +1249,6 @@ server <- function(session, input, output) {
       )
     }
   )
-  ## Edit DTtable(s) ----
-  # Capture edits and update the data
-  # observeEvent(input$showUnitsTSV_cell_edit, {
-  #   message('manual input ',input$showUnitsTSV_cell_edit)
-  #   info <- input$showUnitsTSV_cell_edit
-  #
-  #   df <- dt_samplesheet()
-  #   message('df is: ', class(df), ' | nrow: ', nrow(df))
-  #   req(!is.null(df))   # stop here if still NULL
-  #
-  #   df[info$row, info$col] <- info$value  # apply the edit directly
-  #   dt_samplesheet(df) # write back
-  #   # if units.tsv has been written, overwrite with any edits
-  #   if (globals$checks$gitCheck) {
-  #     message('writing edited units.tsv to disk from showUnitsTSV_cell_edit')
-  #     readr::write_delim(dt_samplesheet(),file=file.path(globals$repoPath,'config/samplesheet/units.tsv'))
-  #   }
-  # })
 
   # Capture cell edits and update the reactive data
   observeEvent(input$sampleSheet_cell_edit, {
