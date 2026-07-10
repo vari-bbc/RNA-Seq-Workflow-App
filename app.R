@@ -4,7 +4,7 @@
 if (!require("pacman", quietly = TRUE))
     install.packages("pacman", repos = "https://cloud.r-project.org")
 
-testing <- 1
+testing <- 0
 ## 1.0 Load Libraries ----
 # change back to individual loads
 pacman::p_load(shiny,bslib,shinyjs,shinyWidgets,bsicons,plotly,DT,readr,
@@ -277,7 +277,7 @@ ui <- UINav2(
           actionButton("printLogSTDERR","Display Snakemake error (STDERR) file"),
           actionButton("openLogSTDOUT","Open Snakemake log (STDOUT) file"),
           actionButton("openLogSTDERR","Open the Snakemake error (STDERR) file"),
-          actionButton("openResults","Open results folder"),
+          actionButton("openResults0","Open results folder"),
           downloadButton("downLoadFinalReport", "Download Report") #|> shinyjs::disabled()
         )
       )
@@ -427,6 +427,7 @@ server <- function(session, input, output) {
           # "downLoadFinalReport",
           # "downLoadFinalReport0",
           "openResults",
+          "openResults0",
           'filterColumnLevel',
           #
           "btn_next",
@@ -1026,7 +1027,7 @@ server <- function(session, input, output) {
       output$errorFilesEmail2 <- renderText({ paste0('SLURM STDOUT: ',file.path(repoPath,globals$logSTDOUT)) })
       output$errorFilesEmail3 <- renderText({ paste0('SLURM STDERR: ',file.path(repoPath,globals$logSTDERR)) })
       deactivateItems("runWorkflow") # don't let user run again if already launched
-      activateItems(c("checkStatus","printLogSTDERR","printLogSTDOUT","openLogSTDERR","openLogSTDOUT","openResults"))
+      activateItems(c("checkStatus","printLogSTDERR","printLogSTDOUT","openLogSTDERR","openLogSTDOUT"))
       shinyalert(
         title = "Workflow Launched!",
         text  = paste("\n\n","Please contact bbc@vai.org with questions"),
@@ -1076,7 +1077,8 @@ server <- function(session, input, output) {
       # paste0("Error checking job status. Slurm error code: ", exit_code)
       shinyjs::show("downLoadFinalReport")
       shinyjs::show("downLoadFinalReport0")
-      activateItems('')
+      activateItems('openResults')
+      activateItems('openResults0')
       paste0("Workflow finished successfully!")
     } else if (cmd_failed){
       paste0("Error checking job status. Slurm error code: ", exit_code,'. Job did not finish successfully, contact bbc@vai.org')
@@ -1084,6 +1086,8 @@ server <- function(session, input, output) {
       message('activating downLoadFinalReport')
       shinyjs::show("downLoadFinalReport")
       shinyjs::show("downLoadFinalReport0")
+      activateItems('openResults')
+      activateItems('openResults0')
       paste0(
         "Job complete. Could not find JOB ID ", globals$job_id,
         ". Workflow finished successfully because results/multiqc/multiqc_report.html exists. ",
@@ -1117,14 +1121,14 @@ server <- function(session, input, output) {
   },ignoreInit = TRUE)
 
   ## 6.3 Open Results Folder ----
-  observeEvent(input$openResults, {
+  observeEvent(list(input$openResults,input$openResults0), {
     baseName <- 'https://ondemand1.vai.zone/pun/sys/dashboard/files/fs/'
     path <- file.path(baseName, globals$repoPath, 'results')
     message('path: ', path)
     # req(path)
     runjs(paste0("window.open('", path, "', '_blank');"))
 
-  })
+  },ignoreInit = TRUE)
 
   ## Open log STDOUT  ----
   observeEvent(input$openLogSTDOUT, {
@@ -1229,10 +1233,16 @@ server <- function(session, input, output) {
       "BBC_RNAseq_Report.zip"
     },
     content = function(file) {
-      req(dir.exists(globals$resultsFolder) || file.exists(globals$resultsFolder))
-      zip(
+      req(dir.exists(globals$resultsFolder))
+
+      oldwd <- getwd()
+      on.exit(setwd(oldwd), add = TRUE)
+
+      setwd(dirname(globals$resultsFolder))
+
+      utils::zip(
         zipfile = file,
-        files = globals$resultsFolder,
+        files =  basename(globals$resultsFolder),
         flags = "-r"   # recursive
       )
     }
@@ -1243,9 +1253,16 @@ server <- function(session, input, output) {
       "BBC_RNAseq_Report.zip"
     },
     content = function(file) {
-      zip(
+      req(dir.exists(globals$resultsFolder))
+
+      oldwd <- getwd()
+      on.exit(setwd(oldwd), add = TRUE)
+
+      setwd(dirname(globals$resultsFolder))
+
+      utils::zip(
         zipfile = file,
-        files = globals$resultsFolder,
+        files = basename(globals$resultsFolder),
         flags = "-r"   # recursive
       )
     }
