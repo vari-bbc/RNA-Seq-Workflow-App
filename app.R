@@ -61,7 +61,7 @@ ui <- UINav2(
               tags$span("Select Samplesheet", style = "font-size: 1.4rem; vertical-align: middle;")
             ),
             "Single",
-            tooltipText = 'The samplesheet must include two columns: \"sample\" & \"group\". The group column designates sample groups to be compared during the differential expression workflow. Columns named \"fq1\" and \"fq2\" designate the input fastq file names. These columns are needed for the workflow, but optional here; if they are not included, an attempt to find the FASTQ files will be made after a FASTQ folder is selected (next tab). Input file must have a .tsv (tab-separated values) or .csv (comma-separated values) extension.'
+            tooltipText = 'The samplesheet must include two columns: \"sample\" & \"group\". The group column designates sample groups to be compared during the differential expression workflow. Columns named \"fq1\" and \"fq2\" designate the input fastq file names. These columns are needed for the workflow, but optional here; if they are not included, an attempt to find the FASTQ files will be made after a FASTQ folder is selected (next tab). Accepts .csv, .txt, .tsv, .xls, or .xlsx samplesheets. If .xls or .xlsx, the first sheet is used.'
           ),
           DTOutput("showUnitsTSV")
         )
@@ -557,7 +557,19 @@ server <- function(session, input, output) {
         )
         return(NULL)
       })
-    }else if (tolower(ext) == "tsv") {
+    }else if (tolower(ext) == "xlsx" || tolower(ext)=="xls") {
+      # Read TSV into data.frame and save it as a global variable
+      df <- tryCatch({
+        readxl::read_excel(file$datapath)
+      }, error = function(e) {
+        shinyalert::shinyalert(
+          title = "File Read Error",
+          text  = paste("Could not read",file$name,"\n\n", e$message),
+          type  = "error"
+        )
+        return(NULL)
+      })
+    }else if (tolower(ext) == "tsv" || tolower(ext)=="txt") {
       # Read TSV into data.frame and save it as a global variable
       df <- tryCatch({
         read.delim(file$datapath, sep = "\t", stringsAsFactors = FALSE)
