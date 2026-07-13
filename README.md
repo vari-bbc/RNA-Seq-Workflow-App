@@ -1,14 +1,10 @@
 # RNA-Seq-Workflow-App
 
-![Version](https://img.shields.io/npm/v/your-package)
-
 ## Launching the app
 
 To run this app, go to: https://ondemand1.vai.zone/pun/sys/dashboard/batch_connect/sys/sh_shiny/session_contexts/new
 
-Select a local copy of this repository as the "path to your shiny project"
-
-Select "bbc2/R/alt/R-4.6.0-setR_LIBS_USER" as the R version
+Select a 'RNA-seq App' from the drop down.
 
 Click "Launch"
 
@@ -26,19 +22,9 @@ The samplesheet must include two columns: "sample" & "group". The group column d
 
 Columns fq1 and fq2 are the names of each sample's read 1 and read 2 FASTQ files.
 
-The group column can represent any group of interest (e.g. genotype, treatment, tissue). 
+The group column can represent any group of interest. Other columns can be included as needed (e.g. genotype, treatment, tissue).
 
 See https://github.com/vari-bbc/rnaseq_workflow for full details on the samplesheet.
-
-##### Example samplesheet
-| sample          | group        | fq1  | fq2       | patient   |
-|---------------|-------------|-------------|----------------|----------|
-| o1 | ovary    | o1_R1.fastq.gz     | o1_R2.fastq.gz       | a   |
-| o2     | ovary    | o2_R1.fastq.gz     | o2_R2.fastq.gz  | b   |
-| e1   | endometrium     | e1_R1.fastq.gz  | e1_R2.fastq.gz         | a |
-| e2     | endometrium     | e2_R1.fastq.gz     | e2_R2.fastq.gz          | b   |
-| b1   | blood     | b1_R1.fastq.gz  | b1_R2.fastq.gz         | a |
-| b2     | blood     | b2_R1.fastq.gz     | b2_R2.fastq.gz          | b   |
 
 #### Select folder with FASTQ files
 
@@ -56,13 +42,15 @@ Specify configuration options then click 'Save Settings'
 
 #### Build differential expression comparisons
 
-Pairwise comparisons between all levels of column group will be made by default. For more complicated contrasts and help with this step, contact [bioinfo@vai.org](mailto:bioinfo@vai.org)
+Select a column of interest from your samplesheet. Pairwise comparisons between all levels of the selected column can be made by default. You can also build individual comparisons with the option to select a covariate and specify filtering criteria for select comparisons.
+
+For more complicated contrasts including interaction terms or multiple covariates, edit the comparisons.tsv directly with the correct group_reg_formula. For help contact [bioinfo@vai.org](mailto:bioinfo@vai.org)
 
 #### Start Workflow
 
 Click 'Start Snakemake RNAseq Workflow'
 
-From this tab you can monitor the workflow's progress or close the session and click 'Already Exists' when you restart the app.
+From this tab you can monitor the workflow's progress or close the session and click 'Already Exists' when you restart the app to get information on the job status. For help contact [bioinfo@vai.org](mailto:bioinfo@vai.org) 
 
 You will receive an email when the snakemake workflow is done running. 
 
