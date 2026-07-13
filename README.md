@@ -73,7 +73,7 @@ You will receive an email when the snakemake workflow is done running.
 
 #### Select an existing workflow
 
-Specify the folder you selected to run your analysis.
+Specify the folder you selected to run your analysis previously.
 
 On the next tab, you have the option to 
 
