@@ -9,7 +9,8 @@ testing <- 0
 # change back to individual loads
 pacman::p_load(shiny,bslib,shinyjs,shinyWidgets,bsicons,plotly,DT,readr,
                tidytable,colourpicker,pheatmap,grid,ggnewscale,stringr,
-               viridis,tibble,shinyFiles,readxl,writexl,yaml,here,shinyjs,shinyalert,shinyFiles)
+               viridis,tibble,shinyFiles,readxl,writexl,yaml,here,shinyjs,
+               shinyalert,shinyFiles,InteractiveComplexHeatmap)
 
 
 ## 2.0 Load Basics ----
@@ -281,6 +282,32 @@ ui <- UINav2(
           downloadButton("downLoadFinalReport", "Download Report") #|> shinyjs::disabled()
         )
       )
+    ),
+    nav_panel('stepb3',
+      card( height = cardHeight,
+        layout_sidebar(
+          sidebar = sidebar(position = "right",width = '75vw',
+              navset_tab(
+                nav_panel("PCA Plot",
+                          plotlyOutput("pca_plot", height = "50%", width = "50%")
+                ),
+                nav_panel("Heatmap",
+                          InteractiveComplexHeatmapOutput('htmp_top_variable')
+                )
+              )
+          ),
+          navSelect("Map_color_pca", "Select column to color by", "Single", "Locked",
+                    theChoices = NULL),
+          # navSelect("number_genes_for_pca", "Select column to color by", "Single", "Locked",
+                    # theChoices = NULL),
+          navSelect("columnsToFilterOnPCA", "Select a column to filter", "Single", "Locked",
+                    theChoices = NULL),
+          navSelect("filterColumnLevelPCA", "First select a column to filter", "Single", "Locked",
+                    theChoices = NULL),
+          verbatimTextOutput("PCAInfo1"),
+          actionButton("plotPCA","Generate Plot")
+        )
+      )
     )
   ),
   div(
@@ -321,7 +348,8 @@ server <- function(session, input, output) {
       fastqFilesFound = FALSE, #
       outputDirCheck = FALSE, #
       sampleSheetCheck = FALSE, #
-      gitCheck = F
+      gitCheck = FALSE,
+      job_finished_success = FALSE
     ),
     samplesheet_path = NULL,
     units = NULL, # workflow repo
@@ -472,7 +500,7 @@ server <- function(session, input, output) {
     message('Modal existing')
     removeModal()
     # rv$path <- "existing"
-    globals$tab_order <- c("stepb1", "stepb2")
+    globals$tab_order <- c("stepb1", "stepb2",'stepb3')
     globals$current_index <- 1
     nav_select("main_tabs", selected = globals$tab_order[1])
     total_steps <- length(globals$tab_order)
@@ -1008,6 +1036,111 @@ server <- function(session, input, output) {
 
   })
 
+  observeEvent(input$plotPCA, {
+    message('fired plotPCA')
+    # only run if input$columnsToContrast, input$baselineGrpContrast and input$relavtiveGrpContrast have values != ''
+
+    # message('input$$columnsToContrast',input$columnsToContrast)
+    # message('input$$baselineGrpContrast',input$baselineGrpContrast)
+    # message('input$$relavtiveGrpContrast',input$relativeGrpContrast)
+
+    missingFields <- c(
+      "Color column"   = is.null(input$Map_color_pca) || input$Map_color_pca == ""#,
+      # "Number of top variable genes"   = is.null(input$number_genes_for_pca) || input$number_genes_for_pca    == ""
+    )
+
+    if (any(missingFields)) {
+      missingNames <- names(missingFields)[missingFields]
+      output$PCAInfo1 <- renderText({
+        paste0("Please select: ", paste(missingNames, collapse = ", "))
+      })
+      req(FALSE)  # stop here, equivalent to blocking further execution
+    } else {
+      output$PCAInfo1 <- renderText({ "" })  # clear old message if all good
+    }
+
+    req(input$Map_color_pca)
+
+    # do the PCA with selected options
+    sce <- readRDS(file.path(globals$repoPath,'results/SummarizedExperiment/sce.rds'))
+    message('class(sce)',class(sce))
+    tpms <- as.data.frame(assay(sce,'tpms'))# %>% tibble::rownames_to_column('Gene')
+
+    # do any filtering here before PCA calc
+    samp_idx <- NULL
+    if(!is.null(input$filterColumnLevelPCA) && input$filterColumnLevelPCA!=''){
+      message('!is.null filterColumnLevelPCA')
+      message('dim(tpms)',dim(tpms))
+      samp_idx <- which(colData(sce)[,input$columnsToFilterOnPCA]==input$filterColumnLevelPCA)
+      tpms <- tpms[ ,samp_idx]
+      message('dim(tpms)',dim(tpms))
+    }
+
+    n <- 500
+    tpms <- tpms[rowSums(is.na(tpms)) != ncol(tpms), ]
+    tpms[is.na(tpms)] <- 0
+    tpms <- tpms[apply(tpms, 1, var) > 0, ]; dim(tpms)
+    gene_vars <- apply(tpms, 1, var)
+    top_genes <- names(sort(gene_vars, decreasing = TRUE)[1:n])
+    pca_result <- prcomp(t(tpms[top_genes,]), scale. = TRUE, center = TRUE)
+    pct_var <- pca_result$sdev^2 / sum(pca_result$sdev^2) * 100
+    pca_df <- pca_result$x %>%
+      as_tibble(rownames = "sample") %>%
+      dplyr::left_join(as.data.frame(colData(sce)))
+
+
+    output$pca_plot <- renderPlotly({
+      p <- ggplot(pca_df, aes_string(x = 'PC1', y = 'PC2', color = input$Map_color_pca,
+                              text = 'sample')) +   # <- 'text' feeds the tooltip
+        geom_point(size = 7) +
+        labs(
+          title = "PCA of Gene Expression",
+          x = paste0("PC1 (", round(pct_var[1], 1), "% variance)"),
+          y = paste0("PC2 (", round(pct_var[2], 1), "% variance)")
+        ) +
+        scale_color_viridis_d(option = "turbo") +
+        theme_bw(base_size = 13) +
+        theme(plot.title = element_text(face = "bold"))
+
+      ggplotly(p, tooltip = "text") %>%
+        layout(
+          title = list(
+            text = "<b>PCA of Gene Expression</b>",
+            font = list(size = 16)
+          ),
+          legend = list(title = list(text = "group"))
+        )
+    })
+    if(is.null(samp_idx) || length(samp_idx)==0){
+      samp_idx <- 1:ncol(tpms) # take all
+    }
+    # Heatmap top variable
+    anno_name <- input$Map_color_pca
+    anno_args <- setNames(
+      list(colData(sce)[, anno_name][samp_idx]),
+      anno_name
+    )
+    colAnno <- do.call(ComplexHeatmap::columnAnnotation, anno_args)
+    mat <- tpms[top_genes,]
+    zmat <- t(scale(t(mat),center=TRUE))
+    zmat[ zmat > 3 ] <- 3
+    zmat[ zmat < (-3) ] <- (-3)
+    message('dim(mat)',dim(mat))
+    message('class(mat)',class(mat))
+    hm <- ComplexHeatmap::Heatmap(zmat,
+                                   col = viridis::cividis(n=25),
+                                   show_row_names = TRUE,
+                                   row_names_gp = gpar(fontsize=5),
+                                   top_annotation = colAnno,
+                                   name = "Z-score TPMs",
+                                   cluster_columns = TRUE,
+                                   cluster_column_slices = FALSE,
+                                   row_title = paste('Top',n,'Variable Genes')
+    )
+    makeInteractiveComplexHeatmap(input, output, session, hm, heatmap_id = "htmp_top_variable")
+
+  })
+
   ## 6.1 Run Snakemake Workflow ----
   observeEvent(input$runWorkflow, {
     repoPath <- globals$repoPath
@@ -1079,9 +1212,26 @@ server <- function(session, input, output) {
     cmd_failed <- !is.null(exit_code) && exit_code != 0
     job_finished <- (length(squeue_output) == 0) && !cmd_failed
 
-    job_finished_success <- file.exists(file.path(globals$repoPath,'results/multiqc/multiqc_report.html'))
+    job_finished_success_multiqc <- file.exists(file.path(globals$repoPath,'results/multiqc/multiqc_report.html'))
+    job_finished_success_sce <- file.exists(file.path(globals$repoPath,'results/SummarizedExperiment/sce.rds'))
+    job_finished_success <- FALSE
+    if(job_finished_success_multiqc && job_finished_success_sce){
+      job_finished_success <- TRUE
+    }
+    message("job_finished_success_multiqc: ",job_finished_success_multiqc)
+    message("job_finished_success_sce: ",job_finished_success_sce)
     message("job_finished_success: ",job_finished_success)
-    # if(job_finished_success || testing){}
+    if(job_finished_success){
+      globals$job_finished_success <- TRUE
+      activateItems(c('btn_next')) # can go to next tab with PCA
+
+      # populate the dt_samplesheet() with bin/units.tsv
+      # new_samplesheet <- read.delim(file.path(globals$repoPath, 'config/samplesheet/units.tsv'), sep = "\t")
+      new_samplesheet <- colData(readRDS(file.path(globals$repoPath, 'results/SummarizedExperiment/sce.rds')))
+      dt_samplesheet(new_samplesheet)
+      message('dim(dt_samplesheet)',dim(dt_samplesheet()))
+      message('class(dt_samplesheet)',class(dt_samplesheet()))
+    }
     message("squeue exit_code: ", if (is.null(exit_code)) 0 else exit_code)
     status_msg_plain_english <- ''
     # 2. Determine the precise status message
@@ -1325,6 +1475,11 @@ server <- function(session, input, output) {
       selected = isolate(input$columnsToContrast)
     )
     updateSelectizeInput(
+      session, "Map_color_pca",
+      choices  = sort(colnames(dt_samplesheet()[-i])),
+      selected = isolate(input$columnsToContrast)
+    )
+    updateSelectizeInput(
       session, "covariateColumn",
       choices = c("", sort(colnames(dt_samplesheet()[-i]))),
       selected = "",
@@ -1335,6 +1490,15 @@ server <- function(session, input, output) {
     )
     updateSelectizeInput(
       session, "columnsToFilterOn",
+      choices = c("", sort(colnames(dt_samplesheet()[-i]))),
+      selected = "",
+      options = list(
+        allowEmptyOption = TRUE,   # <- lets "" show up as a selectable item
+        placeholder = "None"       # optional: nicer label than a blank row
+      )
+    )
+    updateSelectizeInput(
+      session, "columnsToFilterOnPCA",
       choices = c("", sort(colnames(dt_samplesheet()[-i]))),
       selected = "",
       options = list(
@@ -1383,6 +1547,17 @@ server <- function(session, input, output) {
     updateSelectizeInput(session, "filterColumnLevel",
                          choices = c("Not selected" = "", vals),
                          label    = paste0("I want this contrast to include only samples where '", input$columnsToFilterOn, "' is equal to"),
+                         selected = character(0))
+  }, ignoreInit = TRUE)
+
+ observeEvent(input$columnsToFilterOnPCA, {
+    # req(input$columnsToContrast, dt_samplesheet())
+
+    vals <- sort(unique(na.omit(dt_samplesheet()[[input$columnsToFilterOnPCA]])))
+    activateItems('filterColumnLevelPCA')
+    updateSelectizeInput(session, "filterColumnLevelPCA",
+                         choices = c("Not selected" = "", vals),
+                         label    = paste0("I want the PCA plot to include only samples where '", input$columnsToFilterOnPCA, "' is equal to"),
                          selected = character(0))
   }, ignoreInit = TRUE)
 
