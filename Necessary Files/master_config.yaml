@@ -41,10 +41,7 @@ mouse_mm10_gencode:
 
   # OrgDB R package for covnerting gene names. Common choices are 'org.Mm.eg.db' for mouse and 'org.Hs.eg.db' for human.
   orgdb: org.Mm.eg.db
-<<<<<<< HEAD
 
-=======
->>>>>>> 5f8b5f4cbec812b4a98aa41c4872ab8a98be8b78
   # For GSEA quick_ref can only handle human, mouse, rat, and fly; all other organisms need to be filled in manually
   # kegg_org should be a three or four letter string corresponding to your reference species. List of KEGG species is found here: https://www.genome.jp/kegg/tables/br08606.html
   kegg_org: mmu
