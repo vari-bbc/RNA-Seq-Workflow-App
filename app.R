@@ -10,7 +10,7 @@ testing <- 0
 pacman::p_load(shiny,bslib,shinyjs,shinyWidgets,bsicons,plotly,DT,readr,
                tidytable,colourpicker,pheatmap,grid,ggnewscale,stringr,
                viridis,tibble,shinyFiles,readxl,writexl,yaml,here,shinyjs,
-               shinyalert,shinyFiles,InteractiveComplexHeatmap)
+               shinyalert,shinyFiles,InteractiveComplexHeatmap,SummarizedExperiment)
 
 
 ## 2.0 Load Basics ----
