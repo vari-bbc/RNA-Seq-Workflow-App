@@ -63,13 +63,15 @@ check_FASTQs <- function(
 
     find_sample_files <- function(sample, files) {
       # Match any file whose basename starts with sample name + known suffix
-      pattern <- paste0("^", sample, "_.*_R?[12].*\\.(fastq|fq)\\.gz$")
+      #pattern <- paste0("^", sample, "_.*_R?[12].*\\.(fastq|fq)\\.gz$") # demands something between sample and _R[12]
+      pattern <- paste0("^", sample, "(_.*)?_R?[12].*\\.(fastq|fq)\\.gz$")
       matched <- files[grepl(pattern, basename(files))]
       message('for sample ',sample)
       message('matched',matched)
       fq1 <- matched[grepl(".*_R?1.*", basename(matched))]
       fq2 <- matched[grepl(".*_R?2.*", basename(matched))]
-      
+      if(length(fq1)>1){warning('more than one fq1 file! Maybe sample name has _1, _2, _R1, or _R2 in it?')}
+      if(length(fq1)>1){warning('more than one fq2 file! Maybe sample name has _1, _2, _R1, or _R2 in it?')}
       list(
         fq1 = if (length(fq1) == 1) basename(fq1) else NA_character_,
         fq2 = if (length(fq2) == 1) basename(fq2) else NA_character_
