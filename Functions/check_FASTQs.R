@@ -1,52 +1,61 @@
-#' Locate and validate FASTQ files for every sample, across one or more folders
+#' Locate and pair FASTQ files for every sample, across one or more folders
 #'
-#' Given the samplesheet (`units`) and one or more FASTQ folders, find the
-#' read 1 / read 2 FASTQ file of every sample and report anything that cannot
-#' be found or is ambiguous.
+#' Given the samplesheet (`units`) and one or more FASTQ folders, find every
+#' read 1 / read 2 FASTQ pair of every sample and return a units table with
+#' **one row per FASTQ pair**. A sample sequenced on several runs/lanes gets
+#' several rows; rnaseq_workflow trims each pair separately and combines
+#' them per sample at alignment/quantification.
+#'
+#' **How files are referenced.** Each selected folder is given a short *link
+#' name* (its folder name, made unique as `name_1`, `name_2`... if two
+#' selected folders have the same name). At workflow set-up the folder itself is
+#' symlinked to `rnaseq_workflow/raw_data/<link name>`, and `fq1`/`fq2` are
+#' written as `<link name>/<file name>` (the workflow reads
+#' `raw_data/<fq1>`). Identical file names in different folders are therefore
+#' fine - they are different pairs.
 #'
 #' Two modes, chosen automatically:
 #'
-#' 1. **Explicit** - the samplesheet already has `fq1` and `fq2` columns.
-#'    Each value is a file *name* (basename, e.g. `S1_R1_001.fastq.gz`). The
-#'    file may live in any of the selected folders.
-#' 2. **Autodetect** - `fq1`/`fq2` columns are absent. For each sample, a file
-#'    is matched when its name
+#' 1. **Explicit** - the samplesheet has `fq1` and `fq2` columns.
+#'    * `<link name>/<file>` (as written by this function) is used as is.
+#'    * A plain file name is looked for in every selected folder; each folder
+#'      containing both the `fq1` and `fq2` file contributes one row.
+#' 2. **Autodetect** - no `fq1`/`fq2` columns. A file belongs to a sample when
+#'    its name
 #'      * starts with the sample name, optionally followed by `_<anything>`,
-#'      * then `_1`, `_R1` (read 1) or `_2`, `_R2` (read 2), and
+#'      * then `_1`/`_R1` (read 1) or `_2`/`_R2` (read 2), optionally followed
+#'        by `_<anything>`, and
 #'      * ends in `.fastq.gz` or `.fq.gz`.
-#'    e.g. `S1_R1.fastq.gz`, `S1_S7_L001_R1_001.fastq.gz`, `S1_1.fq.gz`.
-#'    The `fq1`/`fq2` columns are then filled in.
+#'    If a file matches several sample names (e.g. samples `A` and `A_2`), it
+#'    is given to the longest one. Read 1 and read 2 files are paired when
+#'    they are in the same folder and their names differ only in the read
+#'    number (`A_L001_R1_001` <-> `A_L001_R2_001`).
 #'
-#' Folders are searched non-recursively (only files directly inside each
-#' selected folder). Because the workflow links all FASTQs into a single flat
-#' `raw_data/` folder, a file name must be unique across the selected folders;
-#' a name present in more than one folder is reported as a duplicate and the
-#' affected samples are treated as not found.
+#' Folders are searched non-recursively (only files directly inside each folder).
 #'
-#' @param units data.frame samplesheet; must contain a `sample` column, and
-#'   optionally `fq1` and `fq2`.
+#' @param units data.frame samplesheet; must contain `sample`, optionally `fq1`, `fq2`.
 #' @param fastqDirs character vector of one or more folder paths to search.
-#' @param fastqDir deprecated single-folder argument, kept for backwards
-#'   compatibility; appended to `fastqDirs` if given.
+#' @param fastqDir deprecated single-folder argument (appended to `fastqDirs`).
 #'
 #' @return A list with
-#'   * `all_fq1_found`, `all_fq2_found` - logical, TRUE when every sample's
-#'     read 1 / read 2 file was found exactly once.
-#'   * `units` - the samplesheet (with `fq1`/`fq2` filled in when autodetected).
-#'   * `missing_fq1`, `missing_fq2` - character, file names (explicit mode) or
-#'     sample names (autodetect mode) that were not found; `character(0)` if none.
-#'   * `units_missing` - rows of `units` with a missing/ambiguous fq1 or fq2.
-#'   * `fastq_paths` - named character vector, file name -> full source path,
-#'     for every FASTQ referenced by `units` that was found. Used to create
-#'     the symlinks in `raw_data/`.
-#'   * `duplicates` - data.frame (`file`, `dirs`) of file names found in more
-#'     than one of the selected folders; zero rows when none.
+#'   * `all_fq1_found`, `all_fq2_found` - logical: every sample has at least
+#'     one pair and every row has both files.
+#'   * `units` - one row per FASTQ pair (other samplesheet columns copied to
+#'     each row); rows for samples/files that could not be found or paired
+#'     are kept with `NA` so they can be shown to the user.
+#'   * `missing_fq1`, `missing_fq2` - character, what was not found.
+#'   * `units_missing` - rows with a missing fq1 or fq2.
+#'   * `folder_links` - named character vector, link name -> folder path; each
+#'     must be symlinked as `raw_data/<link name>`.
+#'   * `fastq_paths` - named character vector, `fq1`/`fq2` value -> full source path.
+#'   * `multi_pair_samples` - data.frame (`sample`, `n_pairs`) of samples with
+#'     more than one FASTQ pair.
 #'
 #' @examples
 #' units <- data.frame(sample = c("A", "B"), group = c("ctl", "trt"))
 #' res <- check_FASTQs(units, fastqDirs = c("/path/run1", "/path/run2"))
-#' res$units        # fq1/fq2 now filled in
-#' res$fastq_paths  # where each file was found
+#' res$units         # e.g. A, ctl, run1/A_R1.fastq.gz, run1/A_R2.fastq.gz ...
+#' res$folder_links  # run1 -> /path/run1, run2 -> /path/run2
 #'
 #' @export
 check_FASTQs <- function(
@@ -55,81 +64,156 @@ check_FASTQs <- function(
     fastqDir = NULL
 ) {
   # (VAI HPC AI-agent operating rules: see docs/VAI_HPC_AI_AGENTS.md)
-  fastqDirs <- unique(c(fastqDirs, fastqDir))
+  fastqDirs <- c(fastqDirs, fastqDir)
   fastqDirs <- fastqDirs[!is.na(fastqDirs) & nzchar(fastqDirs)]
+  fastqDirs <- fastqDirs[!duplicated(normalizePath(fastqDirs, mustWork = FALSE))]
   if (length(fastqDirs) == 0) stop("check_FASTQs(): no FASTQ folder supplied")
-  units <- as.data.frame(units)
+  units <- as.data.frame(units, stringsAsFactors = FALSE)
+  units$sample <- as.character(units$sample)
+
+  # == Link name for each folder: folder name, sanitised, made unique
+  link <- gsub("[^A-Za-z0-9._-]", "_", basename(normalizePath(fastqDirs, mustWork = FALSE)))
+  link[link %in% c("", ".", "..")] <- "fastq"
+  link <- make.unique(link, sep = "_")
+  folder_links <- stats::setNames(fastqDirs, link)
 
   # == Index every FASTQ directly inside each folder (one listing per folder)
-  fq_pattern <- "\\.(fastq|fq)\\.gz$"
-  index <- do.call(rbind, lapply(fastqDirs, function(d) {
-    f <- list.files(d, pattern = fq_pattern, full.names = FALSE)
-    data.frame(file = f, dir = rep(d, length(f)), stringsAsFactors = FALSE)
+  index <- do.call(rbind, lapply(seq_along(fastqDirs), function(i) {
+    f <- list.files(fastqDirs[i], pattern = "\\.(fastq|fq)\\.gz$", full.names = FALSE)
+    data.frame(file = f, link = rep(link[i], length(f)), dir = rep(fastqDirs[i], length(f)),
+               stringsAsFactors = FALSE)
   }))
-  if (is.null(index)) index <- data.frame(file = character(0), dir = character(0))
+  if (is.null(index)) index <- data.frame(file = character(0), link = character(0), dir = character(0))
+  index$rel <- file.path(index$link, index$file)
+  rel2full <- stats::setNames(file.path(index$dir, index$file), index$rel)
 
-  dup_files  <- unique(index$file[duplicated(index$file)])
-  duplicates <- data.frame(
-    file = dup_files,
-    dirs = vapply(dup_files, function(f) paste(index$dir[index$file == f], collapse = "; "),
-                  character(1)),
-    stringsAsFactors = FALSE, row.names = NULL
-  )
-  if (nrow(duplicates) > 0) {
-    warning("FASTQ file names present in more than one selected folder: ",
-            paste(dup_files, collapse = ", "))
-  }
-  # unique file name -> full path (duplicated names are excluded on purpose)
-  unique_idx <- index[!index$file %in% dup_files, , drop = FALSE]
-  lookup <- stats::setNames(file.path(unique_idx$dir, unique_idx$file), unique_idx$file)
-
+  other_cols <- setdiff(colnames(units), c("fq1", "fq2"))
+  na_row <- function(r) { r$fq1 <- NA_character_; r$fq2 <- NA_character_; r }
   explicit <- all(c("fq1", "fq2") %in% colnames(units))
 
-  if (!explicit) {
-    # == Autodetect fq1/fq2 from sample names
-    escape_regex <- function(x) gsub("([][{}()+*^$|\\\\?.])", "\\\\\\1", x)
-    find_sample_files <- function(sample) {
-      s <- escape_regex(sample)
-      # read number is matched AFTER the sample name, so sample names that
-      # themselves contain _1/_R2 do not confuse the R1/R2 assignment
-      p1 <- paste0("^", s, "(_.*)?_R?1(_[^/]*)?\\.(fastq|fq)\\.gz$")
-      p2 <- paste0("^", s, "(_.*)?_R?2(_[^/]*)?\\.(fastq|fq)\\.gz$")
-      cand <- unique(index$file)
-      fq1 <- cand[grepl(p1, cand)]
-      fq2 <- cand[grepl(p2, cand)]
-      if (length(fq1) > 1) warning("sample ", sample, ": more than one read 1 file matched: ",
-                                   paste(fq1, collapse = ", "))
-      if (length(fq2) > 1) warning("sample ", sample, ": more than one read 2 file matched: ",
-                                   paste(fq2, collapse = ", "))
-      c(fq1 = if (length(fq1) == 1) fq1 else NA_character_,
-        fq2 = if (length(fq2) == 1) fq2 else NA_character_)
+  if (explicit) {
+    # == Resolve each row; a bare file name may expand to one row per folder
+    rows <- list(); missing_fq1 <- character(0); missing_fq2 <- character(0)
+    for (i in seq_len(nrow(units))) {
+      r <- units[i, , drop = FALSE]
+      f1 <- as.character(r$fq1); f2 <- as.character(r$fq2)
+      if (!is.na(f1) && f1 %in% index$rel && !is.na(f2) && f2 %in% index$rel) {
+        rows[[length(rows) + 1]] <- r                   # already <link>/<file>
+        next
+      }
+      b1 <- basename(f1); b2 <- basename(f2)
+      in1 <- if (!is.na(f1) && f1 %in% index$rel) dirname(f1) else index$link[index$file == b1]
+      in2 <- if (!is.na(f2) && f2 %in% index$rel) dirname(f2) else index$link[index$file == b2]
+      both <- intersect(in1, in2)
+      if (length(both) > 0) {
+        out <- r[rep(1, length(both)), , drop = FALSE]
+        out$fq1 <- file.path(both, b1); out$fq2 <- file.path(both, b2)
+        rows[[length(rows) + 1]] <- out
+        next
+      }
+      # no folder holds both files: accept only if each file is found exactly once
+      r$fq1 <- if (length(in1) == 1) file.path(in1, b1) else NA_character_
+      r$fq2 <- if (length(in2) == 1) file.path(in2, b2) else NA_character_
+      why <- function(n) if (n == 0) "" else paste0(" (found in ", n, " folders, none holding its mate)")
+      if (is.na(r$fq1)) { message("NOT FOUND: ", f1); missing_fq1 <- c(missing_fq1, paste0(f1, why(length(in1)))) }
+      if (is.na(r$fq2)) { message("NOT FOUND: ", f2); missing_fq2 <- c(missing_fq2, paste0(f2, why(length(in2)))) }
+      rows[[length(rows) + 1]] <- r
     }
-    found <- vapply(as.character(units$sample), find_sample_files, character(2))
-    units$fq1 <- unname(found["fq1", ])
-    units$fq2 <- unname(found["fq2", ])
-    # keep the column order expected by the workflow: sample, group, fq1, fq2, ...
-    front <- intersect(c("sample", "group", "fq1", "fq2"), colnames(units))
-    units <- units[, c(front, setdiff(colnames(units), front)), drop = FALSE]
+    units_out <- do.call(rbind, rows)
+  } else {
+    # == Autodetect: assign files to samples, then pair R1 with R2
+    escape_regex <- function(x) gsub("([][{}()+*^$|\\\\?.])", "\\\\\\1", x)
+    samples <- unique(units$sample)
+    # regex with 3 groups: (prefix up to read number)(read number)(suffix)
+    pat <- function(s) paste0("^(", escape_regex(s), "(?:_.*)?_R?)([12])((?:_[^/]*)?\\.(?:fastq|fq)\\.gz)$")
+    owner <- rep(NA_character_, nrow(index))
+    for (s in samples[order(nchar(samples))]) {        # longer names win
+      owner[grepl(pat(s), index$file, perl = TRUE)] <- s
+    }
+    index$sample <- owner
+    hit <- index[!is.na(index$sample), , drop = FALSE]
+    hit$read <- if (nrow(hit)) mapply(function(f, s) sub(pat(s), "\\2", f, perl = TRUE), hit$file, hit$sample) else character(0)
+    hit$key  <- if (nrow(hit)) mapply(function(f, s) sub(pat(s), "\\1#\\3", f, perl = TRUE), hit$file, hit$sample) else character(0)
+    hit$key  <- paste(hit$link, hit$key, sep = "/")
+
+    rows <- list(); missing_fq1 <- character(0); missing_fq2 <- character(0)
+    for (s in samples) {
+      base <- units[units$sample == s, , drop = FALSE][1, , drop = FALSE]
+      h <- hit[hit$sample == s, , drop = FALSE]
+      if (nrow(h) == 0) {
+        rows[[length(rows) + 1]] <- na_row(base)
+        missing_fq1 <- c(missing_fq1, paste0(s, " (no matching file)"))
+        missing_fq2 <- c(missing_fq2, paste0(s, " (no matching file)"))
+        next
+      }
+      keys <- unique(h$key)
+      keys <- keys[order(match(sub("/.*", "", keys), link), keys)]   # folder order, then name
+      for (k in keys) {
+        r <- base
+        r1 <- h$rel[h$key == k & h$read == "1"]; r2 <- h$rel[h$key == k & h$read == "2"]
+        r$fq1 <- if (length(r1) == 1) r1 else NA_character_
+        r$fq2 <- if (length(r2) == 1) r2 else NA_character_
+        if (is.na(r$fq1)) missing_fq1 <- c(missing_fq1, paste0(s, ": no read 1 partner for ", r2))
+        if (is.na(r$fq2)) missing_fq2 <- c(missing_fq2, paste0(s, ": no read 2 partner for ", r1))
+        rows[[length(rows) + 1]] <- r
+      }
+    }
+    units_out <- do.call(rbind, rows)
   }
 
-  ok1 <- !is.na(units$fq1) & units$fq1 %in% names(lookup)
-  ok2 <- !is.na(units$fq2) & units$fq2 %in% names(lookup)
-  for (f in c(units$fq1[!ok1], units$fq2[!ok2])) message("NOT FOUND: ", f)
+  rownames(units_out) <- NULL
+  front <- intersect(c("sample", "group", "fq1", "fq2"), colnames(units_out))
+  units_out <- units_out[, c(front, setdiff(colnames(units_out), front)), drop = FALSE]
 
-  # report file names when known, otherwise the sample name
-  label_missing <- function(fq, ok) {
-    ifelse(is.na(fq[!ok]), paste0(units$sample[!ok], " (no matching file)"), fq[!ok])
-  }
-  used <- unique(c(units$fq1[ok1], units$fq2[ok2]))
+  ok1 <- !is.na(units_out$fq1); ok2 <- !is.na(units_out$fq2)
+  used <- unique(c(units_out$fq1[ok1], units_out$fq2[ok2]))
+  n_pairs <- table(units_out$sample[ok1 & ok2])
 
   list(
-    'all_fq1_found' = all(ok1),
-    'all_fq2_found' = all(ok2),
-    'units'         = units,
-    'missing_fq1'   = as.character(label_missing(units$fq1, ok1)),
-    'missing_fq2'   = as.character(label_missing(units$fq2, ok2)),
-    'units_missing' = units[!(ok1 & ok2), , drop = FALSE],
-    'fastq_paths'   = lookup[used],
-    'duplicates'    = duplicates
+    'all_fq1_found'      = all(ok1),
+    'all_fq2_found'      = all(ok2),
+    'units'              = units_out,
+    'missing_fq1'        = as.character(missing_fq1),
+    'missing_fq2'        = as.character(missing_fq2),
+    'units_missing'      = units_out[!(ok1 & ok2), , drop = FALSE],
+    'folder_links'       = folder_links,
+    'fastq_paths'        = rel2full[used],
+    'multi_pair_samples' = data.frame(sample = names(n_pairs)[n_pairs > 1],
+                                      n_pairs = as.integer(n_pairs[n_pairs > 1]),
+                                      stringsAsFactors = FALSE)
   )
+}
+
+
+#' Prepare the current samplesheet for a fresh FASTQ check
+#'
+#' After a check, `units` has one row per FASTQ pair and `fq1`/`fq2` hold
+#' `<link name>/<file>`. When folders are added (or the check is re-run after
+#' edits), the check must start again from one row per sample so that every
+#' selected folder is searched for every sample:
+#'
+#' * `autodetected = TRUE` (the uploaded samplesheet had no fq1/fq2): keep the
+#'   first row of each sample and drop `fq1`/`fq2`, so they are re-detected.
+#' * `autodetected = FALSE` (fq1/fq2 came from the samplesheet): strip the
+#'   `<link name>/` prefix and drop repeated rows, so each file name is again
+#'   looked up in every selected folder.
+#'
+#' Edits made in the app to other columns (group, covariates...) are kept.
+#'
+#' @param units current samplesheet (data.frame).
+#' @param autodetected logical, were fq1/fq2 absent from the uploaded samplesheet?
+#' @return data.frame to pass to [check_FASTQs()].
+#' @export
+units_for_recheck <- function(units, autodetected) {
+  units <- as.data.frame(units, stringsAsFactors = FALSE)
+  if (!all(c("fq1", "fq2") %in% colnames(units))) return(units)
+  if (isTRUE(autodetected)) {
+    units <- units[!duplicated(units$sample), setdiff(colnames(units), c("fq1", "fq2")), drop = FALSE]
+  } else {
+    strip <- function(x) ifelse(is.na(x), NA_character_, basename(as.character(x)))
+    units$fq1 <- strip(units$fq1); units$fq2 <- strip(units$fq2)
+    units <- units[!duplicated(units[c("sample", "fq1", "fq2")]), , drop = FALSE]
+  }
+  rownames(units) <- NULL
+  units
 }

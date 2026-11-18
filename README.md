@@ -72,6 +72,9 @@ Accepted formats: `.csv`, `.tsv`, `.txt` (tab-separated), `.xls`, `.xlsx`
 | `group` | yes | Sample group used for differential expression. |
 | `fq1` | optional | File **name** (not path) of the read 1 FASTQ. |
 | `fq2` | optional | File **name** (not path) of the read 2 FASTQ. |
+
+A sample with several FASTQ pairs (several runs, lanes or folders) may be
+listed on several rows, one per pair, with the same `sample` and `group`.
 | anything else | optional | Extra variables (genotype, treatment, batch, tissue …) that can be used for comparisons, covariates or filtering. |
 
 A Genomics Core library template (columns `Library.Name`, `Library.ID`,
@@ -109,17 +112,26 @@ How the files are matched:
 
   The `fq1`/`fq2` columns are then filled in; check them with
   **Show/edit Sample Sheet**.
-- **A file name must not exist in more than one selected folder.** All FASTQs
-  are linked into one `raw_data/` folder, so duplicates are ambiguous and the
-  app will ask you to change the folder selection.
-- Each sample must match **exactly one** read 1 and one read 2 file. One
-  sequencing library split over several lanes/files must be concatenated first.
+- **Several FASTQ pairs per sample are supported.** Every pair found for a
+  sample, in any selected folder, becomes **its own row** in `units.tsv`; the
+  workflow trims each pair and combines them per sample. For example, 10
+  samples of which 2 were sequenced on two runs give 12 rows. Read 1 and read 2
+  are paired when they are in the same folder and their names differ only in
+  the read number (`A_L001_R1_001` ↔ `A_L001_R2_001`).
+- **The same file name in different folders is fine** (e.g. two runs that both
+  contain `S1_R1_001.fastq.gz`); they are treated as different pairs.
+- If a file name could belong to two samples (samples `A` and `A_2`, file
+  `A_2_R1.fastq.gz`), it is given to the longer sample name (`A_2`).
+- In `units.tsv`, `fq1`/`fq2` are written as `<folder link>/<file name>`, e.g.
+  `run1/S1_R1_001.fastq.gz` (see step 3).
 
 When every sample is found, a table shows each sample's files and the folder
 each came from. If something is missing, the samples with problems are shown.
 Fix them by adding another folder, renaming files, or editing the samplesheet
 (**Show/edit Sample Sheet**), then click **Add folder with FASTQ files** and
-re-select any folder to re-run the check.
+re-select any folder to re-run the check. Each check starts again from one row
+per sample and searches all selected folders, so adding a folder picks up both
+missing samples and extra pairs of samples already found.
 
 ### Step 3 – Select the analysis folder
 
@@ -128,10 +140,19 @@ Choose the (empty, writable) folder where the workflow will run, then click
 
 - clones `rnaseq_workflow` into `<analysis folder>/rnaseq_workflow/`
   (the step is refused if that folder already exists and is not empty),
-- symlinks every FASTQ named in the samplesheet – from whichever selected
-  folder it was found in – into `rnaseq_workflow/raw_data/` (the original
-  files are not moved or copied),
-- writes the samplesheet to `rnaseq_workflow/config/samplesheet/units.tsv`.
+- symlinks **each selected FASTQ folder** into `rnaseq_workflow/raw_data/`,
+  named after the folder (made unique as `fastq`, `fastq_1`, … if two selected
+  folders have the same name). E.g. `raw_data/run1 -> /varidata/…/run1`. The
+  original files are not moved or copied,
+- writes the samplesheet to `rnaseq_workflow/config/samplesheet/units.tsv`,
+  one row per FASTQ pair, with `fq1`/`fq2` relative to `raw_data/`:
+
+  ```
+  sample  group  fq1                          fq2                          RG
+  S1      ctl    run1/S1_R1_001.fastq.gz      run1/S1_R2_001.fastq.gz
+  S1      ctl    run2/S1_R1_001.fastq.gz      run2/S1_R2_001.fastq.gz
+  S2      trt    run1/S2_R1_001.fastq.gz      run1/S2_R2_001.fastq.gz
+  ```
 
 ### Step 4 – Save workflow options
 
@@ -182,8 +203,8 @@ Select the analysis folder you chose in step 3. You can then:
 |---------|-----------|
 | "Selected FASTQ Directory Not Readable" | You lack read permission on the folder; ask the data owner or choose another folder. |
 | "fq1/fq2 files missing" | Check the sample names vs file names (see matching rules), add the folder holding the missing files, or edit `fq1`/`fq2`. |
-| "Same FASTQ file name in more than one folder" | Click **Clear selected folders** and select folders that do not contain the same file twice. |
-| A sample matches several files | Sample names that are prefixes of others with `_` (e.g. `A` and `A_2`), or reads split over lanes. Add explicit `fq1`/`fq2` columns, or concatenate lanes. |
+| "no read 2 partner for …" / "no read 1 partner for …" | A read 1 file has no read 2 file with the same name (apart from the read number) in the same folder, or vice versa. Check for missing/renamed files. |
+| A sample has more rows than expected | Each FASTQ pair is a row. Check the `source_folder` column in step 2 – a folder may contain extra files for that sample, or the same data may be in two selected folders (it would then be counted twice). |
 | "rnaseq_workflow repository already exists" | Choose a new analysis folder or remove the old `rnaseq_workflow/`. |
 | Workflow job failed | Read the STDERR log in step 6 / Already Exists and contact [bioinfo@vai.org](mailto:bioinfo@vai.org). |
 
@@ -209,12 +230,19 @@ Select the analysis folder you chose in step 3. You can then:
 - `globals$fastqDirs` (character vector) holds every folder selected with
   **Add folder with FASTQ files**; **Clear selected folders** resets it.
 - `check_FASTQs(units, fastqDirs)` lists each folder once (non-recursive),
-  builds a file-name → full-path index, flags names present in more than one
-  folder, and returns `fastq_paths` (file name → full source path) for every
-  FASTQ the samplesheet uses. The old `fastqDir =` argument still works.
-- At **Download Snakemake workflow**, only the files in `globals$fastqPaths`
-  are symlinked into `raw_data/` (previously every FASTQ in the single folder
-  was linked).
+  gives each folder a unique link name, and returns `units` with **one row per
+  FASTQ pair** and `fq1`/`fq2` = `<link name>/<file>`, plus `folder_links`
+  (link name → folder) and `fastq_paths` (fq value → full path). The old
+  `fastqDir =` argument still works.
+- Before every check the app calls `units_for_recheck()` to collapse the
+  table back to one row per sample (autodetect mode) or to bare file names
+  (explicit mode), so each check searches all folders from scratch.
+  `globals$fqAutodetect` records which mode the uploaded samplesheet needs.
+- At **Download Snakemake workflow**, each folder in `globals$folderLinks` is
+  symlinked as `raw_data/<link name>`; rnaseq_workflow reads
+  `config$raw_data_path + fq1` and merges a sample's rows via its
+  `group_index` (rows per sample) logic. It requires `fq1` to be unique,
+  which the folder prefix guarantees.
 
 ### Running the tests
 

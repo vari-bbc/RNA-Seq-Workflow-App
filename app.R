@@ -95,7 +95,8 @@ ui <- UINav2(
                     'folders are searched together. Only files directly inside each folder are searched (not subfolders).',
                     'If fq1 and fq2 columns are missing from the samplesheet, FASTQ files MUST start with the sample',
                     'name followed by an underscore, have _1 or _R1 (read 1) / _2 or _R2 (read 2), and end in',
-                    'fastq.gz or fq.gz. A file name must not appear in more than one selected folder.')
+                    'fastq.gz or fq.gz. A sample with several FASTQ pairs (several runs, lanes or folders) gets one',
+                    'row per pair in units.tsv.')
             ),
             actionButton("clearFastqDirs",
               tagList(bsicons::bs_icon("x-circle", size = "1.2em"), "Clear selected folders"),
@@ -374,7 +375,9 @@ server <- function(session, input, output) {
     logSTDOUT = 'rnaseq_workflow_app_run.o',
     logSTDERR = 'rnaseq_workflow_app_run.e',
     fastqDirs = character(0), # all selected FASTQ folders
-    fastqPaths = NULL         # named vector: FASTQ file name -> full source path
+    fastqPaths = NULL,        # named vector: fq1/fq2 value (<link>/<file>) -> full source path
+    folderLinks = NULL,       # named vector: link name in raw_data/ -> FASTQ folder
+    fqAutodetect = NULL       # TRUE if the uploaded samplesheet had no fq1/fq2 columns
   )
 
   dt_samplesheet <- reactiveVal(NULL)
@@ -647,6 +650,8 @@ server <- function(session, input, output) {
       )
       globals$checks$sampleSheetCheck <- TRUE
       globals$units <- build_units_TSV_output[['units']] # saves the original, but dt_samplesheet() has any edits & should be used
+      # TRUE when fq1/fq2 must be autodetected from sample names (step 2)
+      globals$fqAutodetect <- !all(c('fq1','fq2') %in% colnames(globals$units))
 
       message <- build_units_TSV_output[['message']]
 
@@ -700,6 +705,7 @@ server <- function(session, input, output) {
     observeEvent(input$clearFastqDirs, {
       globals$fastqDirs <- character(0)
       globals$fastqPaths <- NULL
+      globals$folderLinks <- NULL
       globals$checks$fastqFilesFound <- FALSE
       output$fastqDirText <- renderText({ '' })
       output$fq1Found <- renderText({ '' })
@@ -732,34 +738,24 @@ server <- function(session, input, output) {
       output$fastqDirText <- renderText({ paste0("FASTQ folders:\n", paste(fastqDirs, collapse = "\n")) })
 
       # check that FASTQs exist in any of the selected folders
+      # start from one row per sample so every folder is searched for every sample
       check_FASTQs_result <- check_FASTQs(
-        units = dt_samplesheet(),
+        units = units_for_recheck(dt_samplesheet(), globals$fqAutodetect),
         fastqDirs = fastqDirs
       )
       # reset dt_samplesheet() with any FASTQ information
       dt_samplesheet(as.data.frame(check_FASTQs_result[['units']]))
-      globals$fastqPaths <- check_FASTQs_result[['fastq_paths']]
+      globals$fastqPaths  <- check_FASTQs_result[['fastq_paths']]
+      globals$folderLinks <- check_FASTQs_result[['folder_links']]
 
       missing_fq1 <- check_FASTQs_result[['missing_fq1']]
       missing_fq2 <- check_FASTQs_result[['missing_fq2']]
-      dups <- check_FASTQs_result[['duplicates']]
       where <- if (length(fastqDirs) > 1) "any of the selected folders" else fastqDirs
       globals$checks$fastqFilesFound <- FALSE
-
-      if (nrow(dups) > 0) {
-        shinyalert(
-          title = "Same FASTQ file name in more than one folder",
-          text  = paste0("These file names exist in more than one selected folder, so it is unclear which to use ",
-                         "(all FASTQs are linked into one raw_data/ folder):\n\n",
-                         paste0(dups$file, "  [", dups$dirs, "]", collapse = "\n"),
-                         "\n\nClick 'Clear selected folders' and select a set of folders without duplicates."),
-          type  = "error",
-          closeOnClickOutside = TRUE
-        )
-      }
+      n_samples <- length(unique(dt_samplesheet()$sample))
 
       if(check_FASTQs_result[['all_fq1_found']]==FALSE){
-        if (nrow(dups) == 0) shinyalert(
+        shinyalert(
           title = "fq1 files missing!",
           text  = paste0("Not all read 1 FASTQs were found in ",where,".\n\n",
                          "If some FASTQs are in another folder, click 'Add folder with FASTQ files' again."),
@@ -767,8 +763,7 @@ server <- function(session, input, output) {
         )
         output$fq1Found <- renderText({
             paste(
-              paste0(length(missing_fq1)," of ",nrow(dt_samplesheet()),
-                   " read 1 (fq1) FASTQs NOT FOUND:\n"),
+              paste0("Read 1 (fq1) FASTQs NOT FOUND (", length(missing_fq1), "):\n"),
               paste(missing_fq1,collapse="\n"),
               sep="\n"
             )
@@ -777,7 +772,7 @@ server <- function(session, input, output) {
         output$fq1Found <- renderText({''}) # no message needed
       }
       if(check_FASTQs_result[['all_fq2_found']]==FALSE){
-        if (nrow(dups) == 0 && check_FASTQs_result[['all_fq1_found']]) shinyalert(
+        if (check_FASTQs_result[['all_fq1_found']]) shinyalert(
           title = "fq2 files missing!",
           text  = paste0("Not all read 2 FASTQs were found in ",where,".\n\n",
                          "If some FASTQs are in another folder, click 'Add folder with FASTQ files' again."),
@@ -786,8 +781,7 @@ server <- function(session, input, output) {
         )
         output$fq2Found <- renderText({
           paste(
-            paste0(length(missing_fq2)," of ",nrow(dt_samplesheet()),
-                   " read 2 (fq2) FASTQs NOT FOUND:\n"),
+            paste0("Read 2 (fq2) FASTQs NOT FOUND (", length(missing_fq2), "):\n"),
             paste(missing_fq2,collapse="\n"),
             sep="\n"
           )
@@ -797,17 +791,21 @@ server <- function(session, input, output) {
       }
       if(check_FASTQs_result[['all_fq2_found']]==TRUE & check_FASTQs_result[['all_fq1_found']]==TRUE){
         globals$checks$fastqFilesFound <- TRUE
-        n <- nrow(dt_samplesheet())
-        output$fqFound <- renderText({ paste0("FASTQs for all ",n," samples found.\n") })
+        n_pairs <- nrow(dt_samplesheet())
+        multi <- check_FASTQs_result[['multi_pair_samples']]
+        output$fqFound <- renderText({ paste0("FASTQs for all ", n_samples, " samples found (", n_pairs, " FASTQ pairs).\n") })
 
-        # show where each file was found
+        # show each pair and the folder it came from
         tbl <- dt_samplesheet()
-        tbl$fq1_folder <- dirname(unname(globals$fastqPaths[tbl$fq1]))
-        tbl$fq2_folder <- dirname(unname(globals$fastqPaths[tbl$fq2]))
+        tbl$source_folder <- unname(globals$folderLinks[sub("/.*", "", tbl$fq1)])
         output$showUnitsFastqStep <- renderTable({ tbl })
         shinyalert(
           title = "All samples FASTQ files found!",
-          text  = paste0("Found in ", length(fastqDirs), " folder(s). Go to next"),
+          text  = paste0(n_samples, " samples, ", n_pairs, " FASTQ pairs, from ", length(fastqDirs), " folder(s).",
+                         if (nrow(multi) > 0) paste0("\n\n", nrow(multi), " sample(s) have more than one FASTQ pair ",
+                                                     "(one row per pair in units.tsv; the workflow combines them):\n",
+                                                     paste0(multi$sample, " (", multi$n_pairs, ")", collapse = ", ")) else "",
+                         "\n\nGo to next"),
           type  = "success",
           closeOnClickOutside = TRUE
         )
@@ -932,20 +930,20 @@ server <- function(session, input, output) {
       globals$checks$gitCheck <- FALSE
     })
 
-    # == Link the samples' FASTQs (from all selected folders) into repoPath/raw_data ==
-    # Only files referenced in the samplesheet are linked; their full source
-    # paths were recorded by check_FASTQs(). raw_data/ is flat, so file names
-    # are guaranteed unique by check_FASTQs().
-    source_files <- unname(globals$fastqPaths)
-    target_dir   <- file.path(repoPath, 'raw_data')
+    # == Link each selected FASTQ folder into repoPath/raw_data/<link name> ==
+    # fq1/fq2 in units.tsv are '<link name>/<file>'; rnaseq_workflow reads
+    # raw_data/<fq1>. Linking the folders (not the files) keeps identical file
+    # names from different folders apart.
+    folderLinks <- globals$folderLinks
+    target_dir  <- file.path(repoPath, 'raw_data')
     dir.create(target_dir, showWarnings = FALSE, recursive = TRUE)
-    linked <- file.symlink(source_files, file.path(target_dir, basename(source_files)))
+    linked <- file.symlink(unname(folderLinks), file.path(target_dir, names(folderLinks)))
     if (!all(linked)) {
-      showNotification(paste("Could not link:", paste(source_files[!linked], collapse = ", ")), type = "error")
+      showNotification(paste("Could not link:", paste(folderLinks[!linked], collapse = ", ")), type = "error")
     }
     output$symLinkFastq <- renderText({
-      paste0(sum(linked), " FASTQ files linked into ", repoPath, "/raw_data/ from:\n",
-             paste(fastqDirs, collapse = "\n"))
+      paste0(sum(linked), " FASTQ folder(s) linked into ", repoPath, "/raw_data/:\n",
+             paste0(names(folderLinks), " -> ", folderLinks, collapse = "\n"))
     })
 
     # write units.tsv
@@ -1499,7 +1497,8 @@ server <- function(session, input, output) {
     # if units.tsv has been written, overwrite with any edits
     if (globals$checks$gitCheck) {
       message('writing edited units.tsv to disk from sampleSheet_cell_edit')
-      readr::write_delim(dt_samplesheet(),file=file.path(globals$repoPath,'config/samplesheet/units.tsv'))
+      readr::write_delim(dt_samplesheet(),file=file.path(globals$repoPath,'config/samplesheet/units.tsv'),
+                         delim="\t",quote="none")
     }
   })
 
