@@ -32,10 +32,9 @@ cardHeight <<- '65vh'
 rootDir <<- c('HPC Home Directory' = file.path("/home",Sys.getenv("USER")),
               'Local Home Directory' = "~",
               "HPC Lab Folders" = "/varidata/research/projects/",
-              # the user's own hpctmp folder, not the hpctmp root: the root holds
-              # one folder per HPC user and each needs a slow metadata lookup
-              # (~2 s per listing); a user's own folder lists instantly
-              "HPC Temp Folder" = file.path("/varidata/researchtemp/hpctmp", Sys.getenv("USER"))
+              # note: listing the hpctmp root takes ~2 s (one folder per HPC user,
+              # each needing a metadata lookup on that filesystem)
+              "HPC Temp Folder" = "/varidata/researchtemp/hpctmp/"
 )
 # No shinyFiles 'restrictions': in shinyFiles 0.9.x they are substring matches
 # on the full path, so e.g. "tmp" hid everything under hpctmp and "run"/"dev"
