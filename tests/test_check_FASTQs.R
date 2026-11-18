@@ -86,6 +86,33 @@ fixed <- mk(file.path(root, "zdir"), c("Z_R1.fastq.gz", "Z_R2.fastq.gz"))
 miss2 <- q(units_for_recheck(miss$units, TRUE), fastqDirs = c(runA, fixed))
 check("flow: sample missing in first folder found after adding second", !miss$all_fq1_found && miss2$all_fq1_found && miss2$all_fq2_found)
 
+# 9. single-end autodetect: S1.fastq.gz, S2_R1_001, S3 on two lanes
+se <- mk(file.path(root, "se"), c("S1.fastq.gz", "S2_R1_001.fastq.gz", "S3_L001.fq.gz", "S3_L002.fq.gz"))
+u3 <- data.frame(sample = c("S1", "S2", "S3"), group = c("a", "a", "b"))
+r9 <- q(u3, fastqDirs = se, paired = FALSE)
+check("SE autodetect: 4 rows, S3 has 2", nrow(r9$units) == 4 && sum(r9$units$sample == "S3") == 2)
+check("SE autodetect: all found, fq2 empty", r9$all_fq1_found && r9$all_fq2_found && all(is.na(r9$units$fq2)))
+check("SE autodetect: no notes", length(r9$notes) == 0 && identical(r9$paired, FALSE))
+check("SE: same data, paired mode reports missing", !q(u3, fastqDirs = se)$all_fq1_found)
+
+# 10. single-end selected on paired-end data: R2 files skipped and reported
+r10 <- q(units, fastqDirs = c(runA, runB), paired = FALSE)
+check("SE on PE data: 12 rows of R1 only", nrow(r10$units) == 12 && all(grepl("_R1_", r10$units$fq1)))
+check("SE on PE data: note about 12 skipped read 2 files", length(r10$notes) == 1 && grepl("12 read 2 file", r10$notes))
+
+# 11. single-end explicit: fq1 column only, file present in two folders
+r11 <- q(data.frame(sample = c("S1", "S3"), group = "a", fq1 = c("S1_R1_001.fastq.gz", "S3_R1_001.fastq.gz")),
+         fastqDirs = c(runA, runB), paired = FALSE)
+check("SE explicit: S1 expands to 2 rows", nrow(r11$units) == 3 && r11$all_fq1_found && all(is.na(r11$units$fq2)))
+r11b <- q(ex[1, ], fastqDirs = runA, paired = FALSE)
+check("SE explicit: fq2 column ignored with note", all(is.na(r11b$units$fq2)) && length(r11b$notes) == 1)
+
+# 12. switch paired -> single -> paired with explicit fq1/fq2: fq2 restored
+pe1 <- q(ex[1, ], fastqDirs = runA)
+se1 <- q(units_for_recheck(pe1$units, FALSE, original = ex), fastqDirs = runA, paired = FALSE)
+pe2 <- q(units_for_recheck(se1$units, FALSE, original = ex), fastqDirs = runA)
+check("switch PE->SE->PE restores fq2", identical(pe2$units, pe1$units) && pe2$all_fq2_found)
+
 unlink(root, recursive = TRUE)
 cat(if (n_fail == 0) "\nAll tests passed\n" else paste("\n", n_fail, "test(s) FAILED\n"))
 quit(status = as.integer(n_fail > 0))

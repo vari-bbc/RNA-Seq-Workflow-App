@@ -77,8 +77,14 @@ ui <- UINav2(
           navOutputText("fastqDirText"),
           navOutputText("fq1Found"),
           navOutputText("fq2Found"),
+          navOutputText("fqNotes"),
           navOutputText("unitsTitle")
         ),
+          navSelect("pairedSingle","Paired-end or single-end sequencing library", "Single", "Locked",
+                    theChoices = c("Paired End","Single End"),
+                    tooltipText = paste("Paired End: each sample has read 1 (fq1) and read 2 (fq2) FASTQs.",
+                                        "Single End: one FASTQ per sample (or per run/lane); fq2 is left empty.",
+                                        "Changing this re-checks the FASTQs in the selected folders.")),
           div(
             style = "display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;",
             tooltip(
@@ -93,10 +99,11 @@ ui <- UINav2(
               paste('Select a folder containing FASTQ files. If your FASTQs are spread across several folders',
                     '(e.g. multiple sequencing runs), click this button again to add each folder; all selected',
                     'folders are searched together. Only files directly inside each folder are searched (not subfolders).',
-                    'If fq1 and fq2 columns are missing from the samplesheet, FASTQ files MUST start with the sample',
-                    'name followed by an underscore, have _1 or _R1 (read 1) / _2 or _R2 (read 2), and end in',
-                    'fastq.gz or fq.gz. A sample with several FASTQ pairs (several runs, lanes or folders) gets one',
-                    'row per pair in units.tsv.')
+                    'If FASTQ names are not in the samplesheet, FASTQ files MUST start with the sample name,',
+                    'optionally followed by an underscore and more text, and end in fastq.gz or fq.gz.',
+                    'Paired-end files must also have _1 or _R1 (read 1) / _2 or _R2 (read 2).',
+                    'A sample with several FASTQ pairs/files (several runs, lanes or folders) gets one',
+                    'row per pair/file in units.tsv.')
             ),
             actionButton("clearFastqDirs",
               tagList(bsicons::bs_icon("x-circle", size = "1.2em"), "Clear selected folders"),
@@ -143,15 +150,14 @@ ui <- UINav2(
         layout_sidebar(
           sidebar = sidebar(position = "right",width = '33.33vw',
             navButton("showSampleSheet4","Show/edit Sample Sheet"),
-            p("Choose the reference, species, and analysis settings before saving the config file.")
+            p("Choose the reference, species, and analysis settings before saving the config file."),
+            navOutputText("libraryTypeText")
           ),
           navSelect("speciesSelect","Select the Species & Annotation", "Single", "Locked",
                     theChoices = speciesSelectChoices),
           navSelect("refVersions", "Reference Version", "Single", "Locked",
                     theChoices = refVersionChoices),
           navNumeric("fdrCutoff","False discover rate", 0.01, tooltipText = "Default: 0.01",min=0,max=1),
-          navSelect("pairedSingle","Paired-end or single-end genomics library", "Single", "Locked",
-                    theChoices = c("Paired End","Single End")),
           navCheckbox("visBigWig","Run VisBigWig", "True"),
           navCheckbox("rSeqC","Run rSeqC", "True"),
           actionButton("compileConfig",  tagList(
@@ -377,7 +383,7 @@ server <- function(session, input, output) {
     fastqDirs = character(0), # all selected FASTQ folders
     fastqPaths = NULL,        # named vector: fq1/fq2 value (<link>/<file>) -> full source path
     folderLinks = NULL,       # named vector: link name in raw_data/ -> FASTQ folder
-    fqAutodetect = NULL       # TRUE if the uploaded samplesheet had no fq1/fq2 columns
+    libraryType = NULL        # "Paired End"/"Single End" used for the last FASTQ check
   )
 
   dt_samplesheet <- reactiveVal(NULL)
@@ -650,8 +656,6 @@ server <- function(session, input, output) {
       )
       globals$checks$sampleSheetCheck <- TRUE
       globals$units <- build_units_TSV_output[['units']] # saves the original, but dt_samplesheet() has any edits & should be used
-      # TRUE when fq1/fq2 must be autodetected from sample names (step 2)
-      globals$fqAutodetect <- !all(c('fq1','fq2') %in% colnames(globals$units))
 
       message <- build_units_TSV_output[['message']]
 
@@ -734,14 +738,42 @@ server <- function(session, input, output) {
         return()
       }
       globals$fastqDirs <- unique(c(globals$fastqDirs, newDir))
+      run_fastq_check()
+    })
+
+    # Library type is chosen on this tab; changing it re-runs the check
+    observeEvent(input$pairedSingle, {
+      # units.tsv and raw_data/ are written at 'Download Snakemake workflow';
+      # after that the library type must not change
+      if (isTRUE(globals$checks$gitCheck) && !is.null(globals$libraryType) &&
+          !identical(input$pairedSingle, globals$libraryType)) {
+        updateSelectizeInput(session, "pairedSingle", selected = globals$libraryType)
+        shinyalert(title = "Library type is fixed",
+                   text = paste0("The workflow was already set up as '", globals$libraryType,
+                                 "'. To change it, restart the app and choose a new analysis folder."),
+                   type = "warning", closeOnClickOutside = TRUE)
+        return()
+      }
+      output$libraryTypeText <- renderText({ paste0("Library type (set in the FASTQ step): ", input$pairedSingle) })
+      if (length(globals$fastqDirs) > 0) run_fastq_check()
+    }, ignoreInit = FALSE)
+
+    # Search all selected folders for every sample and update the samplesheet.
+    # Called when a folder is added and when the library type changes.
+    run_fastq_check <- function() {
+      req(dt_samplesheet())
+      paired <- !identical(input$pairedSingle, "Single End")
+      orig_cols <- colnames(globals$units)
+      autodetect <- if (paired) !all(c('fq1','fq2') %in% orig_cols) else !('fq1' %in% orig_cols)
       fastqDirs <- globals$fastqDirs
       output$fastqDirText <- renderText({ paste0("FASTQ folders:\n", paste(fastqDirs, collapse = "\n")) })
 
       # check that FASTQs exist in any of the selected folders
       # start from one row per sample so every folder is searched for every sample
       check_FASTQs_result <- check_FASTQs(
-        units = units_for_recheck(dt_samplesheet(), globals$fqAutodetect),
-        fastqDirs = fastqDirs
+        units = units_for_recheck(dt_samplesheet(), autodetect, original = globals$units),
+        fastqDirs = fastqDirs,
+        paired = paired
       )
       # reset dt_samplesheet() with any FASTQ information
       dt_samplesheet(as.data.frame(check_FASTQs_result[['units']]))
@@ -753,12 +785,18 @@ server <- function(session, input, output) {
       where <- if (length(fastqDirs) > 1) "any of the selected folders" else fastqDirs
       globals$checks$fastqFilesFound <- FALSE
       n_samples <- length(unique(dt_samplesheet()$sample))
+      unit_word <- if (paired) "FASTQ pairs" else "FASTQ files"
+      notes <- check_FASTQs_result[['notes']]
+      output$fqNotes <- renderText({ paste(notes, collapse = "\n\n") })
+      notes_txt <- if (length(notes) > 0) paste0("\n\nPlease note:\n", paste(notes, collapse = "\n\n")) else ""
+      globals$libraryType <- input$pairedSingle
 
       if(check_FASTQs_result[['all_fq1_found']]==FALSE){
         shinyalert(
           title = "fq1 files missing!",
           text  = paste0("Not all read 1 FASTQs were found in ",where,".\n\n",
-                         "If some FASTQs are in another folder, click 'Add folder with FASTQ files' again."),
+                         "If some FASTQs are in another folder, click 'Add folder with FASTQ files' again.",
+                         notes_txt),
           type  = "warning"
         )
         output$fq1Found <- renderText({
@@ -791,9 +829,9 @@ server <- function(session, input, output) {
       }
       if(check_FASTQs_result[['all_fq2_found']]==TRUE & check_FASTQs_result[['all_fq1_found']]==TRUE){
         globals$checks$fastqFilesFound <- TRUE
-        n_pairs <- nrow(dt_samplesheet())
+        n_pairs <- nrow(dt_samplesheet())  # pairs (PE) or files (SE)
         multi <- check_FASTQs_result[['multi_pair_samples']]
-        output$fqFound <- renderText({ paste0("FASTQs for all ", n_samples, " samples found (", n_pairs, " FASTQ pairs).\n") })
+        output$fqFound <- renderText({ paste0("FASTQs for all ", n_samples, " samples found (", n_pairs, " ", unit_word, ").\n") })
 
         # show each pair and the folder it came from
         tbl <- dt_samplesheet()
@@ -801,11 +839,12 @@ server <- function(session, input, output) {
         output$showUnitsFastqStep <- renderTable({ tbl })
         shinyalert(
           title = "All samples FASTQ files found!",
-          text  = paste0(n_samples, " samples, ", n_pairs, " FASTQ pairs, from ", length(fastqDirs), " folder(s).",
-                         if (nrow(multi) > 0) paste0("\n\n", nrow(multi), " sample(s) have more than one FASTQ pair ",
-                                                     "(one row per pair in units.tsv; the workflow combines them):\n",
+          text  = paste0(n_samples, " samples, ", n_pairs, " ", unit_word, " (", input$pairedSingle, "), from ",
+                         length(fastqDirs), " folder(s).",
+                         if (nrow(multi) > 0) paste0("\n\n", nrow(multi), " sample(s) have more than one ", unit_word,
+                                                     " (one row each in units.tsv; the workflow combines them):\n",
                                                      paste0(multi$sample, " (", multi$n_pairs, ")", collapse = ", ")) else "",
-                         "\n\nGo to next"),
+                         notes_txt, "\n\nGo to next"),
           type  = "success",
           closeOnClickOutside = TRUE
         )
@@ -822,7 +861,7 @@ server <- function(session, input, output) {
       }else{
         deactivateItems(c("outputPathSelect"))
       }
-    })
+    }
 
   ## 3.1 Select Output Folder ----
   shinyDirChoose(input, "outputPathSelect", roots = rootDir, session = session, filetypes = character(0),
@@ -872,7 +911,7 @@ server <- function(session, input, output) {
       activateItems(c("downloadRepo"))
       output$outputErrorText <- renderText({ paste0('Selected directory: ',outputDir,"\n") })
       output$outputErrorText2 <- renderText({ 'You can now download the workflow!' })
-      deactivateItems(c("sampleUpload","fastqPathSelect","clearFastqDirs","outputPathSelect"))
+      deactivateItems(c("sampleUpload","pairedSingle","fastqPathSelect","clearFastqDirs","outputPathSelect"))
     }
   })
 
@@ -948,7 +987,7 @@ server <- function(session, input, output) {
 
     # write units.tsv
     readr::write_delim(dt_samplesheet(),file=file.path(repoPath,'config/samplesheet/units.tsv'),
-    delim="\t",quote="none")
+    delim="\t",quote="none",na="")  # empty fq2 = single-end
     output$wroteUnitsTSV <- renderText({ "units.tsv saved" })
 
     shinyalert::closeAlert()
@@ -985,7 +1024,8 @@ server <- function(session, input, output) {
     refVersions <- input$refVersions
     speciesSelect <- input$speciesSelect
     fdrCutoff <- input$fdrCutoff
-    pairedSingle <- input$pairedSingle
+    # library type used for the FASTQ check / units.tsv (chosen in step 2)
+    pairedSingle <- if (!is.null(globals$libraryType)) globals$libraryType else input$pairedSingle
     visBigWig <- input$visBigWig
     rSeqC <- input$rSeqC
 
@@ -1498,7 +1538,7 @@ server <- function(session, input, output) {
     if (globals$checks$gitCheck) {
       message('writing edited units.tsv to disk from sampleSheet_cell_edit')
       readr::write_delim(dt_samplesheet(),file=file.path(globals$repoPath,'config/samplesheet/units.tsv'),
-                         delim="\t",quote="none")
+                         delim="\t",quote="none",na="")
     }
   })
 

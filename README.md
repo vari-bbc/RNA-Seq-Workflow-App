@@ -5,7 +5,8 @@ A Shiny app that sets up and launches the BBC
 VAI HPC without using the command line. It walks you through:
 
 1. uploading a samplesheet,
-2. pointing the app at the folder(s) containing your FASTQ files,
+2. choosing paired-end or single-end and pointing the app at the folder(s)
+   containing your FASTQ files,
 3. choosing an analysis folder (the workflow is cloned there),
 4. choosing the genome and analysis settings,
 5. defining differential-expression comparisons,
@@ -71,7 +72,7 @@ Accepted formats: `.csv`, `.tsv`, `.txt` (tab-separated), `.xls`, `.xlsx`
 | `sample` | yes | Unique sample name. If `fq1`/`fq2` are omitted, FASTQ file names must start with this (see step 2). |
 | `group` | yes | Sample group used for differential expression. |
 | `fq1` | optional | File **name** (not path) of the read 1 FASTQ. |
-| `fq2` | optional | File **name** (not path) of the read 2 FASTQ. |
+| `fq2` | optional | File **name** (not path) of the read 2 FASTQ. Not used for single-end data. |
 
 A sample with several FASTQ pairs (several runs, lanes or folders) may be
 listed on several rows, one per pair, with the same `sample` and `group`.
@@ -87,7 +88,12 @@ for full details on the samplesheet.
 
 ### Step 2 – Select FASTQ folder(s)
 
-Click **Add folder with FASTQ files** and choose a folder.
+First choose **Paired End** or **Single End** (*Paired-end or single-end
+sequencing library*). This decides how FASTQs are matched below and is
+written to `config.yaml` as `PE_or_SE`. Changing it re-runs the FASTQ check.
+It cannot be changed after the workflow has been downloaded (step 3).
+
+Then click **Add folder with FASTQ files** and choose a folder.
 
 **FASTQs in more than one folder?** Click **Add folder with FASTQ files** again
 for each additional folder. All selected folders are listed under the buttons
@@ -99,8 +105,8 @@ How the files are matched:
   subfolders. Add each subfolder that holds FASTQs separately.
 - **If the samplesheet has `fq1`/`fq2` columns**, each file name must match
   exactly, and may be in any of the selected folders.
-- **If it does not**, files are found from the sample name. A file is used for a
-  sample when its name
+- **If it does not**, files are found from the sample name. For **paired-end**,
+  a file is used for a sample when its name
   - starts with the **sample name**, optionally followed by `_` and anything,
   - then `_R1` or `_1` (read 1) / `_R2` or `_2` (read 2), optionally followed by `_` and anything,
   - ends with `.fastq.gz` or `.fq.gz`.
@@ -110,9 +116,17 @@ How the files are matched:
   | `A` | `A_R1.fastq.gz`, `A_S1_L001_R1_001.fastq.gz`, `A_1.fq.gz` |
   | `A` | **not** `A1_R1.fastq.gz` (no `_` after the sample name) |
 
+  For **single-end**, any file whose name is the sample name, optionally
+  followed by `_` and anything, then `.fastq.gz`/`.fq.gz`, is used
+  (`S1.fastq.gz`, `S1_R1_001.fastq.gz`, `S1_L002.fq.gz`). If a folder holds
+  read 1 *and* read 2 files of the same pair, the read 2 files are skipped and
+  you are warned – the data are probably paired-end.
+
   The `fq1`/`fq2` columns are then filled in; check them with
   **Show/edit Sample Sheet**.
-- **Several FASTQ pairs per sample are supported.** Every pair found for a
+- **Single-end:** only `fq1` is needed (an `fq2` column in the samplesheet is
+  ignored, with a warning); `fq2` is left empty in `units.tsv`.
+- **Several FASTQ pairs (or single-end files) per sample are supported.** Every pair (or file) found for a
   sample, in any selected folder, becomes **its own row** in `units.tsv`; the
   workflow trims each pair and combines them per sample. For example, 10
   samples of which 2 were sequenced on two runs give 12 rows. Read 1 and read 2
@@ -145,7 +159,7 @@ Choose the (empty, writable) folder where the workflow will run, then click
   folders have the same name). E.g. `raw_data/run1 -> /varidata/…/run1`. The
   original files are not moved or copied,
 - writes the samplesheet to `rnaseq_workflow/config/samplesheet/units.tsv`,
-  one row per FASTQ pair, with `fq1`/`fq2` relative to `raw_data/`:
+  one row per FASTQ pair (single-end: per file, `fq2` empty), with `fq1`/`fq2` relative to `raw_data/`:
 
   ```
   sample  group  fq1                          fq2                          RG
@@ -161,8 +175,9 @@ Choose the (empty, writable) folder where the workflow will run, then click
 | Species & annotation | Pick the correct genome build and annotation. |
 | Reference version | `latest` or a dated BBC reference release. |
 | False discovery rate | Default 0.01. |
-| Paired-end / single-end | Must match your library. |
 | Run VisBigWig / Run RSeQC | Optional coverage tracks / QC. |
+
+Paired-end/single-end is chosen in step 2 and shown here for reference.
 
 Click **Save Settings**; this writes `rnaseq_workflow/config/config.yaml`.
 
@@ -203,6 +218,7 @@ Select the analysis folder you chose in step 3. You can then:
 |---------|-----------|
 | "Selected FASTQ Directory Not Readable" | You lack read permission on the folder; ask the data owner or choose another folder. |
 | "fq1/fq2 files missing" | Check the sample names vs file names (see matching rules), add the folder holding the missing files, or edit `fq1`/`fq2`. |
+| "Single-end selected, but … read 2 file(s) … were found and skipped" | The folder holds paired-end data. Choose **Paired End**, unless you really want to use read 1 only. |
 | "no read 2 partner for …" / "no read 1 partner for …" | A read 1 file has no read 2 file with the same name (apart from the read number) in the same folder, or vice versa. Check for missing/renamed files. |
 | A sample has more rows than expected | Each FASTQ pair is a row. Check the `source_folder` column in step 2 – a folder may contain extra files for that sample, or the same data may be in two selected folders (it would then be counted twice). |
 | "rnaseq_workflow repository already exists" | Choose a new analysis folder or remove the old `rnaseq_workflow/`. |
@@ -234,10 +250,18 @@ Select the analysis folder you chose in step 3. You can then:
   FASTQ pair** and `fq1`/`fq2` = `<link name>/<file>`, plus `folder_links`
   (link name → folder) and `fastq_paths` (fq value → full path). The old
   `fastqDir =` argument still works.
+- The library type (`input$pairedSingle`, step 2) is passed to
+  `check_FASTQs(paired = )`; the check runs in `run_fastq_check()`, called
+  when a folder is added and when the toggle changes. `globals$libraryType`
+  records the type of the last check and is what `build_YAML()` receives,
+  so `config.yaml` and `units.tsv` always agree. `units.tsv` is written with
+  `na = ""` so `fq2` is empty for single-end, as rnaseq_workflow expects.
 - Before every check the app calls `units_for_recheck()` to collapse the
   table back to one row per sample (autodetect mode) or to bare file names
   (explicit mode), so each check searches all folders from scratch.
-  `globals$fqAutodetect` records which mode the uploaded samplesheet needs.
+  Autodetect vs explicit is decided from the uploaded samplesheet's columns
+  (`fq1`+`fq2` for paired-end, `fq1` for single-end); `fq2` cleared by a
+  single-end check is restored from the uploaded samplesheet when switching back.
 - At **Download Snakemake workflow**, each folder in `globals$folderLinks` is
   symlinked as `raw_data/<link name>`; rnaseq_workflow reads
   `config$raw_data_path + fq1` and merges a sample's rows via its
