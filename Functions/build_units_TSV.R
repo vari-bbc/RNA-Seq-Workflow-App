@@ -1,19 +1,30 @@
-#' Build config/samplesheet/units.tsv 
+#' Standardise an uploaded samplesheet into the units.tsv layout
 #'
-#' Build a units.tsv with 
-#' sample	group	fq1	fq2	RG
-#' 
-#' sample from 
-#' 
-#' @param inputFileName name of samplesheet input
-#' @param df already read in .tsv of .csv
-#' @param fq1_suffix suffix added to sample col to get fq1 filename
-#' @param fq2_suffix suffix added to sample col to get fq2 filename
-#' 
+#' Called after the samplesheet is uploaded (step 1). Recognises three input
+#' layouts, checked in this order:
+#'
+#' 1. `sample`, `group`, `fq1`, `fq2` all present - used as is (columns
+#'    reordered to the front; `RG` added as NA if absent).
+#' 2. `sample`, `group` present - FASTQ names are filled in later by
+#'    [check_FASTQs()] once FASTQ folder(s) are selected (step 2).
+#' 3. A Genomics Core library template (`Library.Name`, `Library.ID`,
+#'    `Library.Prep.Kit`) - `Library.Name` becomes `sample`; fq1/fq2 are
+#'    built as `<sample><fq1_suffix>` / `<sample><fq2_suffix>`. At least one of
+#'    genotype, cell.line, cell.type, treatment, batch, condition, group must
+#'    be present (used to define comparisons).
+#'
+#' Any other layout stops with an error naming the missing columns.
+#'
+#' @param inputFileName samplesheet file name (used in error messages only).
+#' @param df the samplesheet, already read into a data.frame.
+#' @param fq1_suffix suffix appended to `sample` to make the read 1 file name
+#'   (Genomics Core template only).
+#' @param fq2_suffix suffix appended to `sample` to make the read 2 file name
+#'   (Genomics Core template only).
+#'
+#' @return list(`units` = standardised data.frame, `message` = text shown in the app).
+#'
 #' @export
-#'
-#' @examples
-#'
 build_units_TSV <- function(
     inputFileName = NULL,
     df,

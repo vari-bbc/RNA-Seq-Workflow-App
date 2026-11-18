@@ -1,27 +1,43 @@
-#' Build a YAML file for RNAseq Workflow Shiny App.
+#' Write rnaseq_workflow/config/config.yaml from the app's settings
 #'
-#' This is the description.
+#' Called when the user clicks "Save Settings" (step 4). Starts from the
+#' template `Necessary Files/master_config.yaml`, which has one block per
+#' species/annotation plus `modifiable_parameters` and `unchanged` blocks:
 #'
-#' parameters of this function are used to replace key-value pairs in app/Necessary Files/master_config.yaml 
-#' YAML with updated values is written to outputDir/rnaseq_workflow/config/config.yaml 
+#' 1. takes the `species_name` block and replaces the literal text `VERSION`
+#'    in its reference paths with `ref_genome_version`;
+#' 2. sets `fdr_cutoff`, `PE_or_SE`, `run_rseqc`, `run_vis_bigwig`;
+#' 3. checks that every key in the workflow's own (freshly cloned)
+#'    `config/config.yaml` is present, so a new workflow parameter that the
+#'    template does not know about stops with an error instead of being dropped;
+#' 4. overwrites `<outputDir>/rnaseq_workflow/config/config.yaml`.
 #'
+#' To add a species or a new workflow parameter, edit
+#' `Necessary Files/master_config.yaml` (and `speciesSelectChoices` in app.R).
 #'
-#' @param ref_genome_version reference genome version to use 
-#' @param species_name species to use, e.g. human, mouse, fly.
-#' @param fdrCutoff FDR to use with rnaseq_workflow
-#' @param PE_or_SE PE_or_SE
-#' @param 
-#' @param 
-#' @param 
-#' @param 
-#' @param 
-#' @param 
-#' 
-#' @export
+#' @param outputDir analysis folder selected in step 3 (contains `rnaseq_workflow/`).
+#' @param repoDir path of the cloned `rnaseq_workflow` repository.
+#' @param ref_genome_version BBC versioned-reference folder name, e.g.
+#'   `"latest"` or `"2026-02-12_15.29.54_v23"` (see `refVersionChoices` in app.R).
+#' @param species_name top-level key in master_config.yaml, e.g. `"human_hg38_gencode"`.
+#' @param fdrCutoff numeric FDR cutoff for differential expression (0-1).
+#' @param PE_or_SE `"Paired End"` or `"Single End"` (UI labels); written as `PE`/`SE`.
+#' @param run_rseqc logical, run RSeQC QC.
+#' @param run_vis_bigwig logical, produce bigWig coverage tracks.
+#'
+#' @return Called for its side effect (writes config.yaml); errors if the
+#'   template is missing parameters required by the workflow.
 #'
 #' @examples
-#' add_numbers(1, 2) ## returns 3
+#' \dontrun{
+#' build_YAML(outputDir = "/varidata/research/projects/lab/analysis",
+#'            repoDir   = "/varidata/research/projects/lab/analysis/rnaseq_workflow",
+#'            ref_genome_version = "latest", species_name = "human_hg38_gencode",
+#'            fdrCutoff = 0.01, PE_or_SE = "Paired End",
+#'            run_rseqc = TRUE, run_vis_bigwig = TRUE)
+#' }
 #'
+#' @export
 build_YAML <- function(
     outputDir = 'default_outputDir',
     repoDir   = NULL,
