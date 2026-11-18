@@ -1,17 +1,15 @@
-#' Check if the built YAML files exist
+#' Check that a species' reference files exist
 #'
-#' This function is run only by build_YAML.R
+#' Stops with an error naming the first reference file (salmon index,
+#' annotation, dict, sequence, fai) listed under `species_name` in the
+#' (already VERSION-substituted) master YAML that does not exist on disk.
+#' Currently not called (the call in build_YAML() is commented out).
 #'
-#'
-#'
-#'
-#' @param master_YAML reference genome version to use 
-#' @param species_name species name in master_config.yaml 
+#' @param master_YAML list, master_config.yaml as read by yaml::read_yaml()
+#'   after `VERSION` substitution.
+#' @param species_name top-level key of the species block, e.g. `"human_hg38_gencode"`.
 #'
 #' @export
-#'
-#' @examples
-#'
 check_built_YAML <- function(
     master_YAML = NA, 
     species_name = NA
