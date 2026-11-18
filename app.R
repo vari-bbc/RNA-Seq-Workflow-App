@@ -32,11 +32,14 @@ cardHeight <<- '65vh'
 rootDir <<- c('HPC Home Directory' = file.path("/home",Sys.getenv("USER")),
               'Local Home Directory' = "~",
               "HPC Lab Folders" = "/varidata/research/projects/",
-              "HPC Temp Folder" = "/varidata/researchtemp/hpctmp/"
+              # the user's own hpctmp folder, not the hpctmp root: the root holds
+              # one folder per HPC user and each needs a slow metadata lookup
+              # (~2 s per listing); a user's own folder lists instantly
+              "HPC Temp Folder" = file.path("/varidata/researchtemp/hpctmp", Sys.getenv("USER"))
 )
-restrictDir <<- c("afs","bin","cloudstorage","cm","dev","etc","legacy","lib",
-                  "lib64","localdisk","media","mnt","opt","proc","root","run",
-                  "sbin","srv","sys","tmp","usr")
+# No shinyFiles 'restrictions': in shinyFiles 0.9.x they are substring matches
+# on the full path, so e.g. "tmp" hid everything under hpctmp and "run"/"dev"
+# hid folders such as run1_fastq. Browsing is already confined to rootDir.
 
 
 # ___________________ ----
@@ -692,7 +695,7 @@ server <- function(session, input, output) {
 
   ## 2.0 Select FASTQ Folder ----
     shinyDirChoose(input, "fastqPathSelect", roots = rootDir, session = session, filetypes = character(0),
-                   allowDirCreate = FALSE, hidden = FALSE, restrictions = restrictDir)
+                   allowDirCreate = FALSE, hidden = FALSE)
 
     # Multiple folders: every selection made with "Add folder" is appended to
     # globals$fastqDirs, and the samplesheet is re-checked against ALL of them.

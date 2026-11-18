@@ -58,7 +58,9 @@ You need:
 
 The folder browser opens at one of these roots: *HPC Home Directory*,
 *Local Home Directory*, *HPC Lab Folders* (`/varidata/research/projects/`) and
-*HPC Temp Folder* (`/varidata/researchtemp/hpctmp/`).
+*HPC Temp Folder* (your own folder, `/varidata/researchtemp/hpctmp/<username>/`).
+To use FASTQs in someone else's hpctmp folder, ask them to put them (or a
+symlink to them) under `/varidata/research/projects/<lab>/`, or copy them to your own hpctmp folder.
 
 ## Start New
 
